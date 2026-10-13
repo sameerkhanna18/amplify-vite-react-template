@@ -12,6 +12,9 @@ const TABLE_NAME = process.env.DEVICE_AUDIT_TABLE;
 export const handler: APIGatewayProxyHandler = async (event) => {
   const headers = {
     "Content-Type": "application/json",
+    "Access-Control-Allow-Origin":
+      "https://portable-audit-agent.d3io5lnwh2u6as.amplifyapp.com",
+    "Vary": "Origin",
   };
 
   try {
