@@ -41,13 +41,21 @@ function AuditPage({
         throw new Error('Could not retrieve audit data from Ubuntu.');
       }
 
-      const record = (await response.json()) as AuditRecord;
+      const data = await response.json();
 
-      if (!record.Host) {
-        throw new Error('The audit data does not contain a hostname.');
-      }
+const hostname = data.Host ?? data.Hostname ?? data.host ?? data.hostname;
 
-      setAudit(record);
+if (!hostname) {
+  throw new Error('The audit data does not contain a hostname.');
+}
+
+const record = {
+  ...data,
+  Host: hostname,
+} as AuditRecord;
+
+setAudit(record);
+
       setMessage('Audit loaded. Review the information before submitting.');
     } catch (error) {
       setMessage(
