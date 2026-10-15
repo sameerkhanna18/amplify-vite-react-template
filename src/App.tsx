@@ -219,73 +219,6 @@ function parseStructuredValue(value: unknown): unknown {
   }
 }
 
-function formatHeader(key: string): string {
-  const headers: Record<string, string> = {
-    Host: 'Hostname',
-    Hostname: 'Hostname',
-    host: 'Hostname',
-    hostname: 'Hostname',
-
-    Make: 'Manufacturer',
-    make: 'Manufacturer',
-    Manufacturer: 'Manufacturer',
-    manufacturer: 'Manufacturer',
-
-    Model: 'Model',
-    model: 'Model',
-
-    ProductType: 'Product Type',
-    productType: 'Product Type',
-    product_type: 'Product Type',
-
-    Serial: 'Serial Number',
-    serial: 'Serial Number',
-    SerialNumber: 'Serial Number',
-    serial_number: 'Serial Number',
-
-    OsVersion: 'Operating System',
-    osVersion: 'Operating System',
-    os_version: 'Operating System',
-
-    Kernel: 'Kernel',
-    kernel: 'Kernel',
-
-    CPU: 'CPU',
-    cpu: 'CPU',
-
-    Ram: 'RAM',
-    RAM: 'RAM',
-    ram: 'RAM',
-
-    Storage: 'Storage',
-    storage: 'Storage',
-
-    AuditTime: 'Audit Time',
-    audit_time: 'Audit Time',
-
-    hwid: 'HWID',
-    HWID: 'HWID',
-    imei: 'IMEI',
-    IMEI: 'IMEI',
-
-    part_number: 'Part Number',
-    PartNumber: 'Part Number',
-    partNumber: 'Part Number',
-
-    capacity_gb: 'Capacity',
-    locator: 'Slot',
-  };
-
-  if (headers[key]) {
-    return headers[key];
-  }
-
-  return key
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function getRamInfo(value: unknown): RamInfo | null {
   const parsed = parseStructuredValue(value);
 
@@ -1058,7 +991,7 @@ function AuditPage({
                     ]}
                   />
                 </section>
-              ))}
+              )}
 
               {ramInfo && (
                 <section
