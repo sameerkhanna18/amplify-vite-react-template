@@ -6,17 +6,20 @@ import '@aws-amplify/ui-react/styles.css';
 
 const client = generateClient<Schema>();
 
-type RamModule = {
+type HardwareItem = {
+  [key: string]: unknown;
   name?: string;
-  size_mb?: number;
+  manufacturer?: string;
+  make?: string;
+  model?: string;
+  serial?: string;
+  serial_number?: string;
+  part_number?: string;
   capacity_gb?: number;
+  device?: string;
   locator?: string;
   type?: string;
   speed?: string;
-  serial?: string;
-  serial_number?: string;
-  serialNumber?: string;
-  SerialNumber?: string;
 };
 
 type RamInfo = {
@@ -25,18 +28,8 @@ type RamInfo = {
   slots_used?: number;
   slots_available?: number;
   slots_total?: number;
-  modules?: RamModule[];
-};
-
-type DiskInfo = {
-  name?: string;
-  device?: string;
-  capacity_gb?: number;
-  model?: string;
-  serial?: string;
-  serial_number?: string;
-  serialNumber?: string;
-  SerialNumber?: string;
+  modules?: HardwareItem[];
+  [key: string]: unknown;
 };
 
 type AuditRecord = {
@@ -49,7 +42,7 @@ type AuditRecord = {
   Kernel: string;
   CPU: string;
   Ram: string | RamInfo;
-  Storage: string | DiskInfo | DiskInfo[];
+  Storage: string | HardwareItem | HardwareItem[];
   AuditTime?: string;
   [key: string]: unknown;
 };
@@ -60,43 +53,57 @@ const styles = {
     minHeight: '100vh',
     boxSizing: 'border-box' as const,
     background: '#f1f5f9',
-    padding: '32px 20px 48px',
     color: '#1e293b',
     fontFamily: 'Arial, Helvetica, sans-serif',
+    padding: '28px 20px 40px',
     overflowWrap: 'anywhere' as const,
   },
 
   container: {
     width: '100%',
-    maxWidth: '900px',
+    maxWidth: '1440px',
     margin: '0 auto',
     boxSizing: 'border-box' as const,
   },
 
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: '20px',
+    alignItems: 'start',
+  },
+
   card: {
-    width: '100%',
+    minWidth: 0,
     boxSizing: 'border-box' as const,
     background: '#ffffff',
     border: '1px solid #dbe3ed',
     borderRadius: '12px',
-    padding: '24px',
-    marginBottom: '24px',
-    boxShadow: '0 3px 12px rgba(15, 23, 42, 0.04)',
+    padding: '20px',
+    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
     overflow: 'visible' as const,
   },
 
   sectionTitle: {
-    fontSize: '19px',
+    fontSize: '18px',
     lineHeight: 1.4,
     fontWeight: 700,
-    margin: '0 0 20px',
+    margin: '0 0 18px',
     color: '#172554',
     overflowWrap: 'anywhere' as const,
   },
 
+  subsectionTitle: {
+    fontSize: '15px',
+    lineHeight: 1.5,
+    margin: '0 0 12px',
+    color: '#1d4ed8',
+    fontWeight: 700,
+  },
+
   tableWrapper: {
     width: '100%',
-    maxWidth: '100%',
+    minWidth: 0,
     overflowX: 'auto' as const,
     overflowY: 'visible' as const,
     WebkitOverflowScrolling: 'touch' as const,
@@ -106,32 +113,32 @@ const styles = {
     width: '100%',
     borderCollapse: 'collapse' as const,
     tableLayout: 'fixed' as const,
-    fontSize: '14px',
+    fontSize: '13px',
   },
 
   labelCell: {
-    width: '35%',
+    width: '42%',
     boxSizing: 'border-box' as const,
-    padding: '13px 14px',
+    padding: '10px 8px',
     textAlign: 'left' as const,
     verticalAlign: 'top' as const,
     background: '#f8fafc',
     borderBottom: '1px solid #e2e8f0',
-    color: '#334155',
+    color: '#475569',
     fontWeight: 600,
     overflowWrap: 'anywhere' as const,
     wordBreak: 'break-word' as const,
   },
 
   valueCell: {
-    width: '65%',
+    width: '58%',
     boxSizing: 'border-box' as const,
-    padding: '13px 14px',
+    padding: '10px 8px',
     textAlign: 'left' as const,
     verticalAlign: 'top' as const,
     borderBottom: '1px solid #e2e8f0',
     color: '#0f172a',
-    lineHeight: 1.65,
+    lineHeight: 1.6,
     whiteSpace: 'pre-wrap' as const,
     overflowWrap: 'anywhere' as const,
     wordBreak: 'break-word' as const,
@@ -158,14 +165,6 @@ const styles = {
     fontSize: '14px',
     cursor: 'pointer',
   },
-
-  subsectionTitle: {
-    fontSize: '16px',
-    lineHeight: 1.5,
-    margin: '0 0 12px',
-    color: '#334155',
-    fontWeight: 700,
-  },
 };
 
 function firstValue(
@@ -175,7 +174,11 @@ function firstValue(
   for (const key of keys) {
     const value = source[key];
 
-    if (value !== undefined && value !== null && value !== '') {
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== ''
+    ) {
       return value;
     }
   }
@@ -183,7 +186,7 @@ function firstValue(
   return '';
 }
 
-function asText(value: unknown): string {
+function textValue(value: unknown): string {
   if (value === undefined || value === null || value === '') {
     return '';
   }
@@ -193,6 +196,27 @@ function asText(value: unknown): string {
   }
 
   return String(value);
+}
+
+function parseStructuredValue(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+
+  if (
+    !trimmed.startsWith('{') &&
+    !trimmed.startsWith('[')
+  ) {
+    return value;
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
 }
 
 function formatHeader(key: string): string {
@@ -213,7 +237,6 @@ function formatHeader(key: string): string {
     ProductType: 'Product Type',
     productType: 'Product Type',
     product_type: 'Product Type',
-    product_type_name: 'Product Type',
 
     Serial: 'Serial Number',
     serial: 'Serial Number',
@@ -239,6 +262,18 @@ function formatHeader(key: string): string {
 
     AuditTime: 'Audit Time',
     audit_time: 'Audit Time',
+
+    hwid: 'HWID',
+    HWID: 'HWID',
+    imei: 'IMEI',
+    IMEI: 'IMEI',
+
+    part_number: 'Part Number',
+    PartNumber: 'Part Number',
+    partNumber: 'Part Number',
+
+    capacity_gb: 'Capacity',
+    locator: 'Slot',
   };
 
   if (headers[key]) {
@@ -249,24 +284,6 @@ function formatHeader(key: string): string {
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function parseStructuredValue(value: unknown): unknown {
-  if (typeof value !== 'string') {
-    return value;
-  }
-
-  const trimmed = value.trim();
-
-  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
-    return value;
-  }
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return value;
-  }
 }
 
 function getRamInfo(value: unknown): RamInfo | null {
@@ -283,22 +300,20 @@ function getRamInfo(value: unknown): RamInfo | null {
   return parsed as RamInfo;
 }
 
-function getRamModules(value: unknown): RamModule[] {
+function getRamModules(value: unknown): HardwareItem[] {
   const ram = getRamInfo(value);
 
-  if (!ram || !Array.isArray(ram.modules)) {
-    return [];
-  }
-
-  return ram.modules;
+  return ram && Array.isArray(ram.modules)
+    ? ram.modules
+    : [];
 }
 
-function getDisks(value: unknown): DiskInfo[] {
+function getDisks(value: unknown): HardwareItem[] {
   const parsed = parseStructuredValue(value);
 
   if (Array.isArray(parsed)) {
     return parsed.filter(
-      (item): item is DiskInfo =>
+      (item): item is HardwareItem =>
         item !== null &&
         typeof item === 'object' &&
         !Array.isArray(item)
@@ -306,55 +321,134 @@ function getDisks(value: unknown): DiskInfo[] {
   }
 
   if (parsed && typeof parsed === 'object') {
-    const disk = parsed as DiskInfo;
+    const item = parsed as HardwareItem;
 
     if (
-      'device' in disk ||
-      'capacity_gb' in disk ||
-      'model' in disk ||
-      'serial_number' in disk ||
-      'serialNumber' in disk
+      'device' in item ||
+      'capacity_gb' in item ||
+      'model' in item
     ) {
-      return [disk];
+      return [item];
     }
   }
 
   return [];
 }
 
-function getSerialNumber(
-  item: Record<string, unknown>
-): string {
-  return asText(
-    firstValue(item, [
-      'SerialNumber',
-      'serial_number',
-      'serialNumber',
-      'serial',
-      'Serial',
-      'sn',
-    ])
-  );
-}
+function getHardwareDetails(
+  item: HardwareItem,
+  category: 'ram' | 'disk'
+): Array<[string, unknown]> {
+  const manufacturer = firstValue(item, [
+    'Manufacturer',
+    'manufacturer',
+    'make',
+    'Make',
+    'vendor',
+    'Vendor',
+  ]);
 
-function getCapacity(value: unknown): string {
-  if (value === undefined || value === null || value === '') {
-    return 'Not available';
+  const model = firstValue(item, [
+    'Model',
+    'model',
+    'product_name',
+    'product',
+    'Product',
+  ]);
+
+  const serial = firstValue(item, [
+    'SerialNumber',
+    'serial_number',
+    'serialNumber',
+    'serial',
+    'Serial',
+    'sn',
+  ]);
+
+  const partNumber = firstValue(item, [
+    'PartNumber',
+    'part_number',
+    'partNumber',
+    'part',
+    'Part',
+    'pn',
+  ]);
+
+  const hwid = firstValue(item, [
+    'HWID',
+    'hwid',
+    'hardware_id',
+    'hardwareId',
+    'HardwareId',
+    'hardware_uuid',
+    'uuid',
+  ]);
+
+  const imei = firstValue(item, [
+    'IMEI',
+    'imei',
+    'imei_number',
+    'imeiNumber',
+  ]);
+
+  const rows: Array<[string, unknown]> = [
+    ['Manufacturer', manufacturer],
+    ['Model', model],
+    ['Serial Number', serial],
+    ['Part Number', partNumber],
+  ];
+
+  if (category === 'ram') {
+    rows.push(
+      [
+        'Capacity',
+        item.capacity_gb != null
+          ? `${item.capacity_gb} GB`
+          : item.size_mb != null
+            ? `${item.size_mb} MB`
+            : '',
+      ],
+      ['Type', item.type ?? item.Type ?? ''],
+      ['Speed', item.speed ?? item.Speed ?? ''],
+      [
+        'Slot',
+        item.locator ??
+          item.slot ??
+          item.Slot ??
+          '',
+      ]
+    );
+  } else {
+    const device = firstValue(item, [
+      'device',
+      'Device',
+      'name',
+      'Name',
+    ]);
+
+    rows.push(
+      [
+        'Capacity',
+        item.capacity_gb != null
+          ? `${item.capacity_gb} GB`
+          : item.size_mb != null
+            ? `${item.size_mb} MB`
+            : '',
+      ],
+      [
+        'Device',
+        textValue(device).startsWith('/dev/')
+          ? device
+          : device
+            ? `/dev/${textValue(device)}`
+            : '',
+      ],
+      ['HWID', hwid],
+      ['IMEI', imei]
+    );
   }
 
-  return `${value} GB`;
-}
-
-function formatValue(value: unknown): string {
-  if (value === undefined || value === null || value === '') {
-    return 'Not available';
-  }
-
-  if (typeof value === 'object') {
-    return JSON.stringify(value, null, 2);
-  }
-
-  return String(value);
+  return rows;
 }
 
 function AuditTable({
@@ -362,10 +456,6 @@ function AuditTable({
 }: {
   rows: Array<[string, unknown]>;
 }) {
-  if (rows.length === 0) {
-    return <p>No information available.</p>;
-  }
-
   return (
     <div style={styles.tableWrapper}>
       <table style={styles.table}>
@@ -373,11 +463,17 @@ function AuditTable({
           {rows.map(([key, value], index) => (
             <tr key={`${key}-${index}`}>
               <th scope="row" style={styles.labelCell}>
-                {formatHeader(key)}
+                {key}
               </th>
 
               <td style={styles.valueCell}>
-                {formatValue(value)}
+                {value === undefined ||
+                value === null ||
+                value === ''
+                  ? 'Not available'
+                  : typeof value === 'object'
+                    ? JSON.stringify(value, null, 2)
+                    : String(value)}
               </td>
             </tr>
           ))}
@@ -428,58 +524,34 @@ function AuditPage({
 
       const raw = data as Record<string, unknown>;
 
-      const hostname = asText(
-        firstValue(raw, [
-          'Host',
-          'Hostname',
-          'host',
-          'hostname',
-          'computer_name',
-          'ComputerName',
-        ])
-      );
-
-      if (!hostname.trim()) {
-        throw new Error(
-          'The audit data does not contain a valid hostname.'
-        );
-      }
-
-      const manufacturer = asText(
-        firstValue(raw, [
-          'Make',
-          'make',
-          'Manufacturer',
-          'manufacturer',
-          'SystemManufacturer',
-          'system_manufacturer',
-          'vendor',
-          'Vendor',
-        ])
-      );
-
-      const productType = asText(
-        firstValue(raw, [
-          'ProductType',
-          'productType',
-          'product_type',
-          'product_type_name',
-          'Product Type',
-          'product',
-          'Product',
-          'computer_type',
-          'ComputerType',
-        ])
-      );
-
       const record: AuditRecord = {
         ...raw,
 
-        Host: hostname,
+        Host: textValue(
+          firstValue(raw, [
+            'Host',
+            'Hostname',
+            'host',
+            'hostname',
+            'computer_name',
+            'ComputerName',
+          ])
+        ),
 
-        Make: manufacturer,
+        Make: textValue(
+          firstValue(raw, [
+            'Make',
+            'make',
+            'Manufacturer',
+            'manufacturer',
+            'SystemManufacturer',
+            'system_manufacturer',
+            'vendor',
+            'Vendor',
+          ])
+        ),
 
-        Model: asText(
+        Model: textValue(
           firstValue(raw, [
             'Model',
             'model',
@@ -488,9 +560,19 @@ function AuditPage({
           ])
         ),
 
-        ProductType: productType,
+        ProductType: textValue(
+          firstValue(raw, [
+            'ProductType',
+            'productType',
+            'product_type',
+            'product_type_name',
+            'Product Type',
+            'computer_type',
+            'ComputerType',
+          ])
+        ),
 
-        Serial: asText(
+        Serial: textValue(
           firstValue(raw, [
             'Serial',
             'serial',
@@ -501,7 +583,7 @@ function AuditPage({
           ])
         ),
 
-        OsVersion: asText(
+        OsVersion: textValue(
           firstValue(raw, [
             'OsVersion',
             'os_version',
@@ -511,11 +593,11 @@ function AuditPage({
           ])
         ),
 
-        Kernel: asText(
+        Kernel: textValue(
           firstValue(raw, ['Kernel', 'kernel'])
         ),
 
-        CPU: asText(
+        CPU: textValue(
           firstValue(raw, ['CPU', 'cpu', 'processor'])
         ),
 
@@ -531,13 +613,19 @@ function AuditPage({
           'storage',
           'disks',
           'Disks',
-        ]) as string | DiskInfo | DiskInfo[],
+        ]) as string | HardwareItem | HardwareItem[],
       };
 
-      // Remove alternative names to prevent duplicate rows.
-      const aliasesToRemove = [
-        'hostname',
+      if (!record.Host.trim()) {
+        throw new Error(
+          'The audit data does not contain a hostname.'
+        );
+      }
+
+      // Remove duplicate aliases from the additional fields.
+      const aliases = [
         'host',
+        'hostname',
         'Hostname',
         'computer_name',
         'ComputerName',
@@ -558,8 +646,6 @@ function AuditPage({
         'product_type',
         'product_type_name',
         'Product Type',
-        'product',
-        'Product',
         'computer_type',
         'ComputerType',
 
@@ -586,7 +672,7 @@ function AuditPage({
         'Disks',
       ];
 
-      for (const key of aliasesToRemove) {
+      for (const key of aliases) {
         delete record[key];
       }
 
@@ -607,9 +693,7 @@ function AuditPage({
   }
 
   async function submitAudit() {
-    if (!audit) {
-      return;
-    }
+    if (!audit) return;
 
     setBusy(true);
     setMessage('');
@@ -641,7 +725,8 @@ function AuditPage({
         throw new Error(
           result.errors
             ?.map((error) => error.message)
-            .join('; ') || 'Unable to save the audit.'
+            .join('; ') ||
+            'Unable to save the audit.'
         );
       }
 
@@ -673,14 +758,14 @@ function AuditPage({
 
   const systemRows: Array<[string, unknown]> = audit
     ? [
-        ['Host', audit.Host],
-        ['Make', audit.Make || 'Not available'],
-        ['ProductType', audit.ProductType || 'Not available'],
-        ['Model', audit.Model || 'Not available'],
-        ['Serial', audit.Serial || 'Not available'],
-        ['OsVersion', audit.OsVersion || 'Not available'],
-        ['Kernel', audit.Kernel || 'Not available'],
-        ['CPU', audit.CPU || 'Not available'],
+        ['Hostname', audit.Host],
+        ['Manufacturer', audit.Make],
+        ['Product Type', audit.ProductType],
+        ['Model', audit.Model],
+        ['Serial Number', audit.Serial],
+        ['Operating System', audit.OsVersion],
+        ['Kernel', audit.Kernel],
+        ['CPU', audit.CPU],
       ]
     : [];
 
@@ -706,6 +791,84 @@ function AuditPage({
 
   return (
     <main style={styles.page}>
+      <style>
+        {`
+          html {
+            min-height: 100%;
+            height: auto;
+            overflow-y: auto;
+          }
+
+          body {
+            min-height: 100%;
+            height: auto;
+            margin: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+            background: #f1f5f9;
+          }
+
+          #root {
+            min-height: 100vh;
+            height: auto;
+            overflow: visible;
+          }
+
+          *, *::before, *::after {
+            box-sizing: border-box;
+          }
+
+          .audit-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 20px;
+            align-items: start;
+          }
+
+          .audit-span-all {
+            grid-column: 1 / -1;
+          }
+
+          .audit-hardware-card {
+            min-width: 0;
+          }
+
+          .audit-hardware-card + .audit-hardware-card {
+            margin-top: 20px;
+          }
+
+          @media (max-width: 1000px) {
+            .audit-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+          }
+
+          @media (max-width: 640px) {
+            .audit-grid {
+              grid-template-columns: minmax(0, 1fr);
+            }
+
+            .audit-span-all {
+              grid-column: auto;
+            }
+
+            .audit-card {
+              padding: 16px !important;
+            }
+
+            .audit-label-cell,
+            .audit-value-cell {
+              padding: 9px 7px !important;
+              font-size: 12px !important;
+            }
+          }
+
+          button:disabled {
+            cursor: not-allowed !important;
+          }
+        `}
+      </style>
+
       <div style={styles.container}>
         <header
           style={{
@@ -715,7 +878,7 @@ function AuditPage({
         >
           <h1
             style={{
-              fontSize: 'clamp(25px, 4vw, 32px)',
+              fontSize: 'clamp(25px, 4vw, 34px)',
               lineHeight: 1.3,
               margin: '0 0 12px',
               color: '#172554',
@@ -738,7 +901,13 @@ function AuditPage({
           </p>
         </header>
 
-        <section style={styles.card}>
+        <section
+          className="audit-card"
+          style={{
+            ...styles.card,
+            marginBottom: 24,
+          }}
+        >
           <h2 style={styles.sectionTitle}>
             Audit Collection
           </h2>
@@ -752,8 +921,8 @@ function AuditPage({
             }}
           >
             Collect and review your computer's system
-            information, memory configuration, and storage
-            devices before submitting the report to AWS.
+            information, memory modules, storage devices,
+            and hardware identifiers.
           </p>
 
           <button
@@ -795,188 +964,150 @@ function AuditPage({
 
         {audit && (
           <>
-            <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>
-                System Information
-              </h2>
-
-              <AuditTable rows={systemRows} />
-            </section>
-
-            <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>
-                Memory Configuration
-              </h2>
-
-              {ramModules.length > 0 ? (
-                <>
-                  {ramModules.map((module, index) => {
-                    const ramSerial = getSerialNumber(
-                      module as Record<string, unknown>
-                    );
-
-                    return (
-                      <div
-                        key={`ram-${index}`}
-                        style={{
-                          marginBottom:
-                            index < ramModules.length - 1
-                              ? 28
-                              : 0,
-                        }}
-                      >
-                        <h3 style={styles.subsectionTitle}>
-                          RAM {index + 1}
-                        </h3>
-
-                        <AuditTable
-                          rows={[
-                            [
-                              'Capacity',
-                              module.capacity_gb != null
-                                ? getCapacity(module.capacity_gb)
-                                : module.size_mb != null
-                                  ? `${module.size_mb} MB`
-                                  : 'Not available',
-                            ],
-                            [
-                              'Type',
-                              module.type || 'Not available',
-                            ],
-                            [
-                              'Speed',
-                              module.speed || 'Not available',
-                            ],
-                            [
-                              'Slot',
-                              module.locator || 'Not available',
-                            ],
-                            [
-                              'Serial Number',
-                              ramSerial || 'Not available',
-                            ],
-                          ]}
-                        />
-                      </div>
-                    );
-                  })}
-
-                  {ramInfo && (
-                    <p
-                      style={{
-                        color: '#64748b',
-                        fontSize: 13,
-                        lineHeight: 1.7,
-                        marginTop: 20,
-                        marginBottom: 0,
-                      }}
-                    >
-                      {ramInfo.slots_used ??
-                        ramModules.length}{' '}
-                      slot(s) used
-                      {ramInfo.slots_total != null
-                        ? ` out of ${ramInfo.slots_total}`
-                        : ''}
-                      {ramInfo.slots_available != null
-                        ? ` · ${ramInfo.slots_available} available`
-                        : ''}
-                    </p>
-                  )}
-                </>
-              ) : (
-                <AuditTable
-                  rows={[
-                    [
-                      'RAM',
-                      typeof audit.Ram === 'string'
-                        ? audit.Ram
-                        : 'Memory module details not available',
-                    ],
-                  ]}
-                />
-              )}
-            </section>
-
-            <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>
-                Storage Devices
-              </h2>
-
-              {disks.length > 0 ? (
-                disks.map((disk, index) => {
-                  const diskSerial = getSerialNumber(
-                    disk as Record<string, unknown>
-                  );
-
-                  return (
-                    <div
-                      key={`disk-${index}`}
-                      style={{
-                        marginBottom:
-                          index < disks.length - 1
-                            ? 28
-                            : 0,
-                      }}
-                    >
-                      <h3 style={styles.subsectionTitle}>
-                        {disk.name || `Disk ${index + 1}`}
-                      </h3>
-
-                      <AuditTable
-                        rows={[
-                          [
-                            'Device',
-                            disk.device
-                              ? `/dev/${disk.device.replace(
-                                  /^\/dev\//,
-                                  ''
-                                )}`
-                              : 'Not available',
-                          ],
-                          [
-                            'Model',
-                            disk.model || 'Not available',
-                          ],
-                          [
-                            'Capacity',
-                            disk.capacity_gb != null
-                              ? getCapacity(disk.capacity_gb)
-                              : 'Not available',
-                          ],
-                          [
-                            'Serial Number',
-                            diskSerial || 'Not available',
-                          ],
-                        ]}
-                      />
-                    </div>
-                  );
-                })
-              ) : (
-                <AuditTable
-                  rows={[
-                    [
-                      'Storage',
-                      typeof audit.Storage === 'string'
-                        ? audit.Storage
-                        : 'Storage details not available',
-                    ],
-                  ]}
-                />
-              )}
-            </section>
-
-            {otherRows.length > 0 && (
-              <section style={styles.card}>
+            <div className="audit-grid">
+              <section
+                className="audit-card audit-span-all"
+                style={styles.card}
+              >
                 <h2 style={styles.sectionTitle}>
-                  Additional Information
+                  System Information
                 </h2>
 
-                <AuditTable rows={otherRows} />
+                <AuditTable rows={systemRows} />
               </section>
-            )}
 
-            <section style={styles.card}>
+              {ramModules.length > 0 ? (
+                ramModules.map((module, index) => (
+                  <section
+                    key={`ram-${index}`}
+                    className="audit-card audit-hardware-card"
+                    style={styles.card}
+                  >
+                    <h2 style={styles.sectionTitle}>
+                      RAM {index + 1}
+                    </h2>
+
+                    <AuditTable
+                      rows={getHardwareDetails(module, 'ram')}
+                    />
+                  </section>
+                ))
+              ) : (
+                <section
+                  className="audit-card"
+                  style={styles.card}
+                >
+                  <h2 style={styles.sectionTitle}>
+                    Memory Configuration
+                  </h2>
+
+                  <AuditTable
+                    rows={[
+                      [
+                        'Total Capacity',
+                        ramInfo?.total_gb != null
+                          ? `${ramInfo.total_gb} GB`
+                          : typeof audit.Ram === 'string'
+                            ? audit.Ram
+                            : 'Not available',
+                      ],
+                      [
+                        'Modules Installed',
+                        ramInfo?.modules_installed ?? '',
+                      ],
+                      ['RAM Serial Number', ''],
+                    ]}
+                  />
+                </section>
+              )}
+
+              {disks.length > 0 ? (
+                disks.map((disk, index) => (
+                  <section
+                    key={`disk-${index}`}
+                    className="audit-card audit-hardware-card"
+                    style={styles.card}
+                  >
+                    <h2 style={styles.sectionTitle}>
+                      {textValue(disk.name) ||
+                        `Disk ${index + 1}`}
+                    </h2>
+
+                    <AuditTable
+                      rows={getHardwareDetails(disk, 'disk')}
+                    />
+                  </section>
+                ))
+              ) : (
+                <section
+                  className="audit-card"
+                  style={styles.card}
+                >
+                  <h2 style={styles.sectionTitle}>
+                    Storage Devices
+                  </h2>
+
+                  <AuditTable
+                    rows={[
+                      [
+                        'Storage',
+                        typeof audit.Storage === 'string'
+                          ? audit.Storage
+                          : 'Storage details not available',
+                      ],
+                    ]}
+                  />
+                </section>
+              ))}
+
+              {ramInfo && (
+                <section
+                  className="audit-card"
+                  style={styles.card}
+                >
+                  <h2 style={styles.sectionTitle}>
+                    Memory Summary
+                  </h2>
+
+                  <AuditTable
+                    rows={[
+                      ['Total RAM', ramInfo.total_gb != null
+                        ? `${ramInfo.total_gb} GB`
+                        : ''],
+                      [
+                        'Modules Installed',
+                        ramInfo.modules_installed ?? ramModules.length,
+                      ],
+                      ['Slots Used', ramInfo.slots_used],
+                      ['Available Slots', ramInfo.slots_available],
+                      ['Total Slots', ramInfo.slots_total],
+                    ]}
+                  />
+                </section>
+              )}
+
+              {otherRows.length > 0 && (
+                <section
+                  className="audit-card"
+                  style={styles.card}
+                >
+                  <h2 style={styles.sectionTitle}>
+                    Additional Information
+                  </h2>
+
+                  <AuditTable rows={otherRows} />
+                </section>
+              )}
+            </div>
+
+            <section
+              className="audit-card"
+              style={{
+                ...styles.card,
+                marginTop: 24,
+                marginBottom: 24,
+              }}
+            >
               <h2 style={styles.sectionTitle}>
                 Submit Audit
               </h2>
@@ -1008,14 +1139,16 @@ function AuditPage({
           </>
         )}
 
-        <footer
+        <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: 12,
-            padding: '4px 0 20px',
+            padding: '12px 0 0',
+            marginTop: 12,
+            borderTop: '1px solid #dbe3ed',
           }}
         >
           <span
@@ -1034,7 +1167,7 @@ function AuditPage({
           >
             Sign Out
           </button>
-        </footer>
+        </div>
       </div>
     </main>
   );
