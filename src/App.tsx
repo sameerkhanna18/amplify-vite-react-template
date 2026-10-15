@@ -122,11 +122,21 @@ setAudit(record);
           <table>
             <tbody>
               {Object.entries(audit).map(([key, value]) => (
-                <tr key={key}>
-                  <th style={{ textAlign: 'left', padding: 8 }}>{key}</th>
-                  <td style={{ padding: 8 }}>{value || 'Not available'}</td>
-                </tr>
-              ))}
+  <tr key={key}>
+    <th style={{ textAlign: 'left', padding: 8 }}>{key}</th>
+    <td style={{ padding: 8 }}>
+      {value == null || value === '' ? (
+        'Not available'
+      ) : typeof value === 'object' ? (
+        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      ) : (
+        String(value)
+      )}
+    </td>
+  </tr>
+))}
             </tbody>
           </table>
 
