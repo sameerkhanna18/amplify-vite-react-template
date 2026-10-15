@@ -45,104 +45,118 @@ type AuditRecord = {
   [key: string]: unknown;
 };
 
-function formatAuditValue(key: string, value: unknown) {
+const styles = {
+  page: {
+    minHeight: '100vh',
+    boxSizing: 'border-box' as const,
+    background: '#f3f6fa',
+    padding: '32px 20px',
+    color: '#1f2937',
+    fontFamily: 'Arial, Helvetica, sans-serif',
+  },
+  container: {
+    maxWidth: '1000px',
+    width: '100%',
+    margin: '0 auto',
+  },
+  card: {
+    background: '#ffffff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '12px',
+    padding: '24px',
+    marginBottom: '24px',
+    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
+  },
+  sectionTitle: {
+    fontSize: '19px',
+    fontWeight: 700,
+    margin: '0 0 18px',
+    color: '#172554',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse' as const,
+    tableLayout: 'fixed' as const,
+  },
+  labelCell: {
+    width: '30%',
+    padding: '12px 14px',
+    textAlign: 'left' as const,
+    verticalAlign: 'top' as const,
+    background: '#f8fafc',
+    borderBottom: '1px solid #e2e8f0',
+    fontWeight: 600,
+    overflowWrap: 'anywhere' as const,
+  },
+  valueCell: {
+    padding: '12px 14px',
+    verticalAlign: 'top' as const,
+    borderBottom: '1px solid #e2e8f0',
+    overflowWrap: 'anywhere' as const,
+    whiteSpace: 'pre-wrap' as const,
+    lineHeight: 1.6,
+  },
+  button: {
+    background: '#1d4ed8',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '7px',
+    padding: '11px 18px',
+    fontSize: '14px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  secondaryButton: {
+    background: '#ffffff',
+    color: '#334155',
+    border: '1px solid #cbd5e1',
+    borderRadius: '7px',
+    padding: '10px 16px',
+    fontSize: '14px',
+    cursor: 'pointer',
+  },
+};
+
+function formatHeader(key: string): string {
+  const headers: Record<string, string> = {
+    Host: 'Hostname',
+    Hostname: 'Hostname',
+    host: 'Hostname',
+    hostname: 'Hostname',
+    Make: 'Manufacturer',
+    make: 'Manufacturer',
+    Model: 'Model',
+    model: 'Model',
+    Serial: 'Serial Number',
+    serial: 'Serial Number',
+    OsVersion: 'Operating System',
+    os_version: 'Operating System',
+    Kernel: 'Kernel',
+    kernel: 'Kernel',
+    CPU: 'CPU',
+    cpu: 'CPU',
+    Ram: 'RAM',
+    RAM: 'RAM',
+    ram: 'RAM',
+    Storage: 'Storage',
+    storage: 'Storage',
+    AuditTime: 'Audit Time',
+    audit_time: 'Audit Time',
+  };
+
+  if (headers[key]) {
+    return headers[key];
+  }
+
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatValue(value: unknown): string {
   if (value == null || value === '') {
     return 'Not available';
-  }
-
-  if (key.toLowerCase() === 'ram' && typeof value === 'object') {
-    const ram = value as RamInfo;
-
-    return (
-      <div>
-        <div>
-          <strong>Total RAM:</strong>{' '}
-          {ram.total_gb != null ? `${ram.total_gb} GB` : 'Unknown'}
-        </div>
-
-        <div>
-          <strong>Modules installed:</strong>{' '}
-          {ram.modules_installed ?? 'Unknown'}
-        </div>
-
-        <div>
-          <strong>Memory slots:</strong>{' '}
-          {ram.slots_used ?? '?'} used, {ram.slots_available ?? '?'} available
-          {ram.slots_total != null ? ` (${ram.slots_total} total)` : ''}
-        </div>
-
-        {ram.modules?.map((module, index) => (
-          <div
-            key={`${module.locator ?? module.name ?? 'ram'}-${index}`}
-            style={{
-              marginTop: 10,
-              padding: 10,
-              background: '#f3f4f6',
-              borderRadius: 6,
-            }}
-          >
-            <strong>{module.name ?? `Memory module ${index + 1}`}</strong>
-
-            <div>
-              Capacity:{' '}
-              {module.capacity_gb != null
-                ? `${module.capacity_gb} GB`
-                : module.size_mb != null
-                  ? `${module.size_mb} MB`
-                  : 'Unknown'}
-            </div>
-
-            <div>Type: {module.type ?? 'Unknown'}</div>
-            <div>Speed: {module.speed ?? 'Unknown'}</div>
-            <div>Slot: {module.locator ?? 'Unknown'}</div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (
-    key.toLowerCase() === 'storage' &&
-    typeof value === 'object'
-  ) {
-    const disks: DiskInfo[] = Array.isArray(value) ? value : [value as DiskInfo];
-
-    return (
-      <div>
-        {disks.map((disk, index) => (
-          <div
-            key={`${disk.device ?? disk.name ?? 'disk'}-${index}`}
-            style={{
-              marginBottom: 10,
-              padding: 10,
-              background: '#f3f4f6',
-              borderRadius: 6,
-            }}
-          >
-            <strong>{disk.name ?? `Disk ${index + 1}`}</strong>
-
-            <div>
-              Device: {disk.device ? `/dev/${disk.device.replace(/^\/dev\//, '')}` : 'Unknown'}
-            </div>
-
-            <div>Model: {disk.model ?? 'Unknown'}</div>
-
-            <div>
-              Capacity:{' '}
-              {disk.capacity_gb != null
-                ? `${disk.capacity_gb} GB`
-                : 'Unknown'}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item, index) => (
-      <div key={index}>{String(item)}</div>
-    ));
   }
 
   if (typeof value === 'object') {
@@ -150,6 +164,101 @@ function formatAuditValue(key: string, value: unknown) {
   }
 
   return String(value);
+}
+
+function parseStructuredValue(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    return value;
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function getRamModules(value: unknown): RamModule[] {
+  const parsed = parseStructuredValue(value);
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return [];
+  }
+
+  const ram = parsed as RamInfo;
+
+  return Array.isArray(ram.modules) ? ram.modules : [];
+}
+
+function getRamInfo(value: unknown): RamInfo | null {
+  const parsed = parseStructuredValue(value);
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return null;
+  }
+
+  return parsed as RamInfo;
+}
+
+function getDisks(value: unknown): DiskInfo[] {
+  const parsed = parseStructuredValue(value);
+
+  if (Array.isArray(parsed)) {
+    return parsed.filter(
+      (item): item is DiskInfo =>
+        item !== null && typeof item === 'object'
+    );
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    const disk = parsed as DiskInfo;
+
+    if (
+      'device' in disk ||
+      'capacity_gb' in disk ||
+      'model' in disk
+    ) {
+      return [disk];
+    }
+  }
+
+  return [];
+}
+
+function AuditTable({
+  rows,
+}: {
+  rows: Array<[string, unknown]>;
+}) {
+  if (rows.length === 0) {
+    return <p>No information available.</p>;
+  }
+
+  return (
+    <div style={{ width: '100%', overflowX: 'auto' }}>
+      <table style={styles.table}>
+        <tbody>
+          {rows.map(([key, value], index) => (
+            <tr key={`${key}-${index}`}>
+              <th scope="row" style={styles.labelCell}>
+                {formatHeader(key)}
+              </th>
+
+              <td style={styles.valueCell}>
+                {formatValue(value)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function AuditPage({
@@ -180,26 +289,61 @@ function AuditPage({
       const data: unknown = await response.json();
 
       if (
-        data == null ||
+        !data ||
         typeof data !== 'object' ||
         Array.isArray(data)
       ) {
-        throw new Error('The audit service returned an invalid data format.');
+        throw new Error('The audit service returned invalid data.');
       }
 
       const raw = data as Record<string, unknown>;
 
       const hostname =
-        raw.Host ?? raw.Hostname ?? raw.host ?? raw.hostname;
+        raw.Host ??
+        raw.Hostname ??
+        raw.host ??
+        raw.hostname;
 
       if (typeof hostname !== 'string' || !hostname.trim()) {
-        throw new Error('The audit data does not contain a hostname.');
+        throw new Error(
+          'The audit data does not contain a valid hostname.'
+        );
       }
 
-      const record = {
+      const record: AuditRecord = {
         ...raw,
-        Host: hostname,
-      } as AuditRecord;
+        Host: hostname.trim(),
+        Make: String(raw.Make ?? raw.make ?? ''),
+        Model: String(raw.Model ?? raw.model ?? ''),
+        Serial: String(raw.Serial ?? raw.serial ?? ''),
+        OsVersion: String(
+          raw.OsVersion ?? raw.os_version ?? raw.osVersion ?? ''
+        ),
+        Kernel: String(raw.Kernel ?? raw.kernel ?? ''),
+        CPU: String(raw.CPU ?? raw.cpu ?? ''),
+        Ram: (
+          raw.Ram ?? raw.RAM ?? raw.ram ?? ''
+        ) as string | RamInfo,
+        Storage: (
+          raw.Storage ?? raw.storage ?? raw.disks ?? ''
+        ) as string | DiskInfo | DiskInfo[],
+      };
+
+      // Remove duplicate fields and alternative spellings.
+      delete record.hostname;
+      delete record.host;
+      delete record.Hostname;
+      delete record.RAM;
+      delete record.ram;
+      delete record.make;
+      delete record.model;
+      delete record.serial;
+      delete record.os_version;
+      delete record.osVersion;
+      delete record.kernel;
+      delete record.cpu;
+      delete record.storage;
+      delete record.disks;
 
       setAudit(record);
       setMessage('Audit loaded. Review the information before submitting.');
@@ -259,82 +403,287 @@ function AuditPage({
     }
   }
 
+  const ramModules = audit ? getRamModules(audit.Ram) : [];
+  const ramInfo = audit ? getRamInfo(audit.Ram) : null;
+  const disks = audit ? getDisks(audit.Storage) : [];
+
+  const systemRows: Array<[string, unknown]> = audit
+    ? [
+        ['Host', audit.Host],
+        ['Make', audit.Make],
+        ['Model', audit.Model],
+        ['Serial', audit.Serial],
+        ['OsVersion', audit.OsVersion],
+        ['Kernel', audit.Kernel],
+        ['CPU', audit.CPU],
+      ]
+    : [];
+
+  const otherRows: Array<[string, unknown]> = audit
+    ? Object.entries(audit).filter(
+        ([key]) =>
+          ![
+            'Host',
+            'Make',
+            'Model',
+            'Serial',
+            'OsVersion',
+            'Kernel',
+            'CPU',
+            'Ram',
+            'Storage',
+          ].includes(key)
+      )
+    : [];
+
   return (
-    <main
-      style={{
-        maxWidth: 800,
-        margin: '40px auto',
-        padding: 24,
-        fontFamily: 'Arial, sans-serif',
-      }}
-    >
-      <h1>Computer Audit</h1>
-
-      <p>
-        Signed in as: {user?.signInDetails?.loginId ?? 'Authenticated user'}
-      </p>
-
-      <p>
-        Load the computer information collected by your Ubuntu audit script.
-      </p>
-
-      <button onClick={loadAudit} disabled={busy}>
-        {busy ? 'Working...' : 'Load audit from Ubuntu'}
-      </button>
-
-      {audit && (
-        <section>
-          <h2>Review computer information</h2>
-
-          <table
+    <main style={styles.page}>
+      <div style={styles.container}>
+        <header style={{ marginBottom: 24 }}>
+          <h1
             style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              marginBottom: 20,
+              fontSize: 30,
+              margin: '0 0 10px',
+              color: '#172554',
             }}
           >
-            <tbody>
-              {Object.entries(audit).map(([key, value]) => (
-                <tr
-                  key={key}
-                  style={{ borderBottom: '1px solid #ddd' }}
-                >
-                  <th
+            Computer Audit
+          </h1>
+
+          <p style={{ margin: 0, color: '#64748b' }}>
+            Signed in as:{' '}
+            {user?.signInDetails?.loginId ?? 'Authenticated user'}
+          </p>
+        </header>
+
+        <section style={styles.card}>
+          <h2 style={styles.sectionTitle}>Audit Collection</h2>
+
+          <p style={{ lineHeight: 1.6, marginTop: 0 }}>
+            Collect and review your computer's system information,
+            memory configuration, and storage devices.
+          </p>
+
+          <button
+            type="button"
+            style={{
+              ...styles.button,
+              opacity: busy ? 0.65 : 1,
+            }}
+            onClick={loadAudit}
+            disabled={busy}
+          >
+            {busy ? 'Working...' : 'Load Audit from Ubuntu'}
+          </button>
+
+          {message && (
+            <p
+              role="status"
+              aria-live="polite"
+              style={{
+                marginTop: 16,
+                padding: 12,
+                borderRadius: 6,
+                background: message.startsWith('Success')
+                  ? '#dcfce7'
+                  : message.startsWith('Audit loaded')
+                    ? '#dbeafe'
+                    : '#fee2e2',
+                color: '#1f2937',
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {message}
+            </p>
+          )}
+        </section>
+
+        {audit && (
+          <>
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>System Information</h2>
+              <AuditTable rows={systemRows} />
+            </section>
+
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>Memory Configuration</h2>
+
+              {ramModules.length > 0 ? (
+                <>
+                  {ramModules.map((module, index) => (
+                    <div
+                      key={`${module.locator ?? module.name ?? 'ram'}-${index}`}
+                      style={{
+                        marginBottom:
+                          index < ramModules.length - 1 ? 24 : 0,
+                      }}
+                    >
+                      <h3
+                        style={{
+                          fontSize: 16,
+                          margin: '0 0 10px',
+                          color: '#334155',
+                        }}
+                      >
+                        {`RAM ${index + 1}`}
+                      </h3>
+
+                      <AuditTable
+                        rows={[
+                          [
+                            'Capacity',
+                            module.capacity_gb != null
+                              ? `${module.capacity_gb} GB`
+                              : module.size_mb != null
+                                ? `${module.size_mb} MB`
+                                : 'Not available',
+                          ],
+                          ['Type', module.type ?? 'Not available'],
+                          ['Speed', module.speed ?? 'Not available'],
+                          ['Slot', module.locator ?? 'Not available'],
+                        ]}
+                      />
+                    </div>
+                  ))}
+
+                  {ramInfo && (
+                    <p
+                      style={{
+                        color: '#64748b',
+                        fontSize: 13,
+                        marginBottom: 0,
+                      }}
+                    >
+                      {ramInfo.slots_used ?? ramModules.length} slot(s) used
+                      {ramInfo.slots_total != null
+                        ? ` out of ${ramInfo.slots_total}`
+                        : ''}
+                      {ramInfo.slots_available != null
+                        ? ` · ${ramInfo.slots_available} available`
+                        : ''}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <AuditTable
+                  rows={[
+                    [
+                      'RAM',
+                      typeof audit.Ram === 'string'
+                        ? audit.Ram
+                        : 'Memory module details not available',
+                    ],
+                  ]}
+                />
+              )}
+            </section>
+
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>Storage Devices</h2>
+
+              {disks.length > 0 ? (
+                disks.map((disk, index) => (
+                  <div
+                    key={`${disk.device ?? disk.name ?? 'disk'}-${index}`}
                     style={{
-                      textAlign: 'left',
-                      verticalAlign: 'top',
-                      padding: 10,
-                      width: '30%',
+                      marginBottom: index < disks.length - 1 ? 24 : 0,
                     }}
                   >
-                    {key}
-                  </th>
+                    <h3
+                      style={{
+                        fontSize: 16,
+                        margin: '0 0 10px',
+                        color: '#334155',
+                      }}
+                    >
+                      {disk.name ?? `Disk ${index + 1}`}
+                    </h3>
 
-                  <td style={{ padding: 10 }}>
-                    {formatAuditValue(key, value)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <AuditTable
+                      rows={[
+                        [
+                          'Device',
+                          disk.device
+                            ? `/dev/${disk.device.replace(/^\/dev\//, '')}`
+                            : 'Not available',
+                        ],
+                        ['Model', disk.model ?? 'Not available'],
+                        [
+                          'Capacity',
+                          disk.capacity_gb != null
+                            ? `${disk.capacity_gb} GB`
+                            : 'Not available',
+                        ],
+                      ]}
+                    />
+                  </div>
+                ))
+              ) : (
+                <AuditTable
+                  rows={[
+                    [
+                      'Storage',
+                      typeof audit.Storage === 'string'
+                        ? audit.Storage
+                        : 'Storage details not available',
+                    ],
+                  ]}
+                />
+              )}
+            </section>
 
-          <button onClick={submitAudit} disabled={busy}>
-            Submit to AWS
+            {otherRows.length > 0 && (
+              <section style={styles.card}>
+                <h2 style={styles.sectionTitle}>Additional Information</h2>
+                <AuditTable rows={otherRows} />
+              </section>
+            )}
+
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>Submit Audit</h2>
+
+              <p style={{ lineHeight: 1.6 }}>
+                Submit the collected computer information to AWS.
+              </p>
+
+              <button
+                type="button"
+                style={{
+                  ...styles.button,
+                  opacity: busy ? 0.65 : 1,
+                }}
+                onClick={submitAudit}
+                disabled={busy}
+              >
+                {busy ? 'Submitting...' : 'Submit to AWS'}
+              </button>
+            </section>
+          </>
+        )}
+
+        <footer
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 12,
+            padding: '8px 0 24px',
+          }}
+        >
+          <span style={{ fontSize: 13, color: '#64748b' }}>
+            Computer Audit System
+          </span>
+
+          <button
+            type="button"
+            style={styles.secondaryButton}
+            onClick={signOut}
+          >
+            Sign Out
           </button>
-        </section>
-      )}
-
-      {busy && <p>Working...</p>}
-
-      {message && (
-        <p role="status" aria-live="polite">
-          {message}
-        </p>
-      )}
-
-      <hr style={{ marginTop: 32 }} />
-
-      <button onClick={signOut}>Sign out</button>
+        </footer>
+      </div>
     </main>
   );
 }
@@ -348,3 +697,4 @@ export default function App() {
     </Authenticator>
   );
 }
+
