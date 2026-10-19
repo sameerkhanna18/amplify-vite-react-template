@@ -81,61 +81,7 @@ const emptyCustomFields: CustomFields = {
   notes: '',
 };
 
-const styles = {
-  page: {
-    width: '100%',
-    minHeight: '100vh',
-    boxSizing: 'border-box' as const,
-    background: '#f1f5f9',
-    color: '#1e293b',
-    fontFamily: 'Arial, Helvetica, sans-serif',
-    padding: '28px 0 48px',
-  },
 
-  container: {
-    width: '90%',
-    maxWidth: '1800px',
-    margin: '0 auto',
-    boxSizing: 'border-box' as const,
-  },
-
-  card: {
-    minWidth: 0,
-    boxSizing: 'border-box' as const,
-    background: '#ffffff',
-    border: '1px solid #dbe3ed',
-    borderRadius: '12px',
-    padding: '22px',
-    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
-  },
-
-  sectionTitle: {
-    fontSize: '19px',
-    lineHeight: 1.4,
-    fontWeight: 700,
-    margin: '0 0 18px',
-    color: '#172554',
-    overflowWrap: 'anywhere' as const,
-  },
-
-  button: {
-    background: '#1d4ed8',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '7px',
-    padding: '12px 18px',
-    fontSize: '14px',
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-
-  secondaryButton: {
-    background: '#ffffff',
-    color: '#334155',
-    border: '1px solid #cbd5e1',
-    borderRadius: '7px',
-    padding: '10px 16px',
-    fontSize: '14px',
     cursor: 'pointer',
   },
 
@@ -145,34 +91,38 @@ const styles = {
     overflowX: 'auto' as const,
     overflowY: 'visible' as const,
     WebkitOverflowScrolling: 'touch' as const,
+    border: '1px solid #e5eaf2',
+    borderRadius: '10px',
   },
 
   table: {
     width: '100%',
-    borderCollapse: 'collapse' as const,
+    borderCollapse: 'separate' as const,
+    borderSpacing: 0,
     fontSize: '13px',
   },
 
   labelCell: {
-    width: '220px',
-    minWidth: '170px',
-    padding: '11px 12px',
+    width: '205px',
+    minWidth: '175px',
+    padding: '13px 16px',
     textAlign: 'left' as const,
-    verticalAlign: 'top' as const,
-    background: '#f8fafc',
-    borderBottom: '1px solid #e2e8f0',
-    color: '#475569',
+    verticalAlign: 'middle' as const,
+    background: '#f8fafd',
+    borderBottom: '1px solid #e8edf4',
+    color: '#58677d',
     fontWeight: 600,
+    fontSize: '12px',
     overflowWrap: 'anywhere' as const,
   },
 
   valueCell: {
-    padding: '11px 12px',
+    padding: '13px 16px',
     textAlign: 'left' as const,
-    verticalAlign: 'top' as const,
-    borderBottom: '1px solid #e2e8f0',
-    color: '#0f172a',
-    lineHeight: 1.6,
+    verticalAlign: 'middle' as const,
+    borderBottom: '1px solid #e8edf4',
+    color: '#1e293b',
+    lineHeight: 1.65,
     whiteSpace: 'pre-wrap' as const,
     overflowWrap: 'anywhere' as const,
     wordBreak: 'break-word' as const,
