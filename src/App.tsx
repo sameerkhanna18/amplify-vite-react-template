@@ -446,14 +446,19 @@ function HardwareInventory({
     ) => string;
   }> = [
     {
-      label: 'Component',
-      getValue: (item, category) =>
-        category === 'cpu'
-          ? 'Processor'
-          : category === 'ram'
-            ? 'Memory'
-            : 'Storage',
-    },
+  label: 'Component',
+  getValue: (item, category) => {
+    if (category === 'cpu') {
+      return 'CPU';
+    }
+
+    if (category === 'ram') {
+      return textValue(item.name) || 'RAM';
+    }
+
+    return textValue(item.name) || textValue(item.device) || 'Disk';
+  },
+},
     {
       label: 'Make',
       getValue: (item) =>
@@ -1133,7 +1138,7 @@ function AuditPage({
               ? audit.Storage
               : JSON.stringify(audit.Storage),
 
-          AuditTime: audit.AuditTime,
+AuditTime: audit.AuditTime ?? new Date().toISOString(),
         });
 
       if (result.errors?.length || !result.data) {
