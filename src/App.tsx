@@ -345,7 +345,7 @@ function getCpuFallback(cpu: string): HardwareItem {
 }
 
 /* -------------------------------------------------------
-   Reusable table for system and additional information
+   Reusable vertical table for additional information
 ------------------------------------------------------- */
 
 function AuditTable({
@@ -385,6 +385,93 @@ function AuditTable({
               </td>
             </tr>
           ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------
+   System Information table
+
+   Four columns in the required order:
+   Product Type | Make | Model | Serial Number
+
+   One row contains the corresponding values.
+------------------------------------------------------- */
+
+function SystemInformationTable({
+  audit,
+}: {
+  audit: AuditRecord;
+}) {
+  const columns: Array<{
+    label: string;
+    value: unknown;
+  }> = [
+    {
+      label: 'Product Type',
+      value: audit.ProductType,
+    },
+    {
+      label: 'Make',
+      value: audit.Make,
+    },
+    {
+      label: 'Model',
+      value: audit.Model,
+    },
+    {
+      label: 'Serial Number',
+      value: audit.Serial,
+    },
+  ];
+
+  return (
+    <div style={styles.tableWrapper}>
+      <table
+        style={{
+          ...styles.table,
+          minWidth: '700px',
+        }}
+      >
+        <thead>
+          <tr>
+            {columns.map((column) => (
+              <th
+                key={column.label}
+                scope="col"
+                style={{
+                  ...styles.valueCell,
+                  background: '#f1f5f9',
+                  color: '#334155',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  borderBottom: '1px solid #dbe3ed',
+                  width: '25%',
+                }}
+              >
+                {column.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr>
+            {columns.map((column) => (
+              <td
+                key={column.label}
+                style={{
+                  ...styles.valueCell,
+                  borderBottom: 'none',
+                  width: '25%',
+                }}
+              >
+                {displayValue(column.value)}
+              </td>
+            ))}
+          </tr>
         </tbody>
       </table>
     </div>
@@ -446,19 +533,23 @@ function HardwareInventory({
     ) => string;
   }> = [
     {
-  label: 'Component',
-  getValue: (item, category) => {
-    if (category === 'cpu') {
-      return 'CPU';
-    }
+      label: 'Component',
+      getValue: (item, category) => {
+        if (category === 'cpu') {
+          return 'CPU';
+        }
 
-    if (category === 'ram') {
-      return textValue(item.name) || 'RAM';
-    }
+        if (category === 'ram') {
+          return textValue(item.name) || 'RAM';
+        }
 
-    return textValue(item.name) || textValue(item.device) || 'Disk';
-  },
-},
+        return (
+          textValue(item.name) ||
+          textValue(item.device) ||
+          'Disk'
+        );
+      },
+    },
     {
       label: 'Make',
       getValue: (item) =>
@@ -1138,7 +1229,8 @@ function AuditPage({
               ? audit.Storage
               : JSON.stringify(audit.Storage),
 
-AuditTime: audit.AuditTime ?? new Date().toISOString(),
+          AuditTime:
+            audit.AuditTime ?? new Date().toISOString(),
         });
 
       if (result.errors?.length || !result.data) {
@@ -1166,15 +1258,6 @@ AuditTime: audit.AuditTime ?? new Date().toISOString(),
       setBusy(false);
     }
   }
-
-  const systemRows: Array<[string, unknown]> = audit
-    ? [
-        ['Make', audit.Make],
-        ['Model', audit.Model],
-        ['Serial Number', audit.Serial],
-        ['Product Type', audit.ProductType],
-      ]
-    : [];
 
   const additionalRows: Array<[string, unknown]> =
     audit
@@ -1513,7 +1596,7 @@ AuditTime: audit.AuditTime ?? new Date().toISOString(),
               ? 'Please wait...'
               : audit
                 ? 'Refresh Audit'
-                : 'Load Audit from Ubuntu'}
+                : 'Audit this device'}
           </button>
 
           {message && (
@@ -1546,7 +1629,8 @@ AuditTime: audit.AuditTime ?? new Date().toISOString(),
                 computer.
               </p>
 
-              <AuditTable rows={systemRows} />
+              {/* Four columns and one data row */}
+              <SystemInformationTable audit={audit} />
             </section>
 
             {/* Hardware Inventory */}
