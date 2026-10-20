@@ -78,12 +78,12 @@ const styles = {
     color: '#172033',
     fontFamily:
       'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif',
-    padding: '32px 0 48px',
+    padding: '24px 0 40px',
   },
 
   container: {
-    width: '94%',
-    maxWidth: '1600px',
+    width: '96%',
+    maxWidth: '1800px',
     margin: '0 auto',
     boxSizing: 'border-box' as const,
   },
@@ -94,7 +94,7 @@ const styles = {
     background: '#ffffff',
     border: '1px solid #e2e8f0',
     borderRadius: '14px',
-    padding: '26px',
+    padding: '22px',
     boxShadow: '0 3px 12px rgba(15, 23, 42, 0.035)',
   },
 
@@ -107,10 +107,10 @@ const styles = {
   },
 
   sectionDescription: {
-    margin: '0 0 22px',
+    margin: '0 0 18px',
     color: '#64748b',
     fontSize: '13px',
-    lineHeight: 1.7,
+    lineHeight: 1.6,
   },
 
   button: {
@@ -121,7 +121,7 @@ const styles = {
     color: '#ffffff',
     border: 'none',
     borderRadius: '8px',
-    padding: '12px 20px',
+    padding: '11px 18px',
     fontSize: '14px',
     fontWeight: 600,
     cursor: 'pointer',
@@ -157,7 +157,7 @@ const styles = {
   labelCell: {
     width: '220px',
     minWidth: '170px',
-    padding: '13px 15px',
+    padding: '11px 13px',
     textAlign: 'left' as const,
     verticalAlign: 'top' as const,
     background: '#f8fafc',
@@ -168,12 +168,12 @@ const styles = {
   },
 
   valueCell: {
-    padding: '13px 15px',
+    padding: '11px 12px',
     textAlign: 'left' as const,
     verticalAlign: 'top' as const,
     borderBottom: '1px solid #e9eef5',
     color: '#1e293b',
-    lineHeight: 1.65,
+    lineHeight: 1.55,
     whiteSpace: 'pre-wrap' as const,
     overflowWrap: 'anywhere' as const,
     wordBreak: 'break-word' as const,
@@ -270,10 +270,7 @@ function getDisks(value: unknown): HardwareItem[] {
     );
   }
 
-  if (
-    parsed &&
-    typeof parsed === 'object'
-  ) {
+  if (parsed && typeof parsed === 'object') {
     const item = parsed as HardwareItem;
 
     if (
@@ -345,7 +342,7 @@ function getCpuFallback(cpu: string): HardwareItem {
 }
 
 /* -------------------------------------------------------
-   Reusable vertical table for additional information
+   Reusable vertical table
 ------------------------------------------------------- */
 
 function AuditTable({
@@ -392,11 +389,7 @@ function AuditTable({
 }
 
 /* -------------------------------------------------------
-   System Information table
-
-   Columns:
-   Product Type | Make | Model | Part Number |
-   Serial Number | CPU | Storage | RAM
+   System Information
 ------------------------------------------------------- */
 
 function SystemInformationTable({
@@ -481,7 +474,8 @@ function SystemInformationTable({
       <table
         style={{
           ...styles.table,
-          minWidth: '1200px',
+          width: '100%',
+          minWidth: '1050px',
           tableLayout: 'fixed',
         }}
       >
@@ -493,11 +487,13 @@ function SystemInformationTable({
                 scope="col"
                 style={{
                   ...styles.valueCell,
+                  padding: '11px 10px',
                   background: '#f1f5f9',
                   color: '#334155',
                   fontWeight: 700,
                   whiteSpace: 'normal',
-                  overflowWrap: 'anywhere',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'normal',
                   borderBottom: '1px solid #dbe3ed',
                 }}
               >
@@ -514,8 +510,9 @@ function SystemInformationTable({
                 key={column.label}
                 style={{
                   ...styles.valueCell,
+                  padding: '11px 10px',
                   whiteSpace: 'normal',
-                  overflowWrap: 'anywhere',
+                  overflowWrap: 'break-word',
                   wordBreak: 'normal',
                   borderBottom: 'none',
                 }}
@@ -530,13 +527,10 @@ function SystemInformationTable({
   );
 }
 
-
-
 /* -------------------------------------------------------
-   Hardware inventory
+   Hardware Inventory
 
-   Columns represent attributes.
-   Rows represent CPU, RAM modules and storage devices.
+   Rows represent CPU, RAM and storage components.
 ------------------------------------------------------- */
 
 function HardwareInventory({
@@ -587,14 +581,8 @@ function HardwareInventory({
     {
       label: 'Component',
       getValue: (_item, category) => {
-        if (category === 'cpu') {
-          return 'CPU';
-        }
-
-        if (category === 'ram') {
-          return 'RAM';
-        }
-
+        if (category === 'cpu') return 'CPU';
+        if (category === 'ram') return 'RAM';
         return 'Storage';
       },
     },
@@ -643,9 +631,7 @@ function HardwareInventory({
             /\b(Intel|AMD|Apple|Qualcomm|ARM)\b/i
           );
 
-          if (match) {
-            return match[1];
-          }
+          if (match) return match[1];
         }
 
         if (category === 'ram') {
@@ -653,9 +639,7 @@ function HardwareInventory({
             /\b(Samsung|SK Hynix|Micron|Kingston|Crucial|Corsair|G\.Skill|ADATA|Transcend)\b/i
           );
 
-          if (match) {
-            return match[1];
-          }
+          if (match) return match[1];
         }
 
         return '';
@@ -743,12 +727,10 @@ function HardwareInventory({
 
         const speedText = textValue(speed);
 
-        // Keep existing units, such as MHz or GHz.
         if (/[a-z]/i.test(speedText)) {
           return speedText;
         }
 
-        // Assume a plain numeric CPU speed is MHz.
         if (category === 'cpu') {
           const numericSpeed = Number(speed);
 
@@ -834,9 +816,8 @@ function HardwareInventory({
           </h2>
 
           <p style={styles.sectionDescription}>
-            Hardware components detected during the
-            audit. Each row represents an individual
-            component.
+            Hardware components detected during the audit.
+            Each row represents an individual component.
           </p>
         </div>
 
@@ -846,14 +827,20 @@ function HardwareInventory({
       </div>
 
       <div style={styles.tableWrapper}>
-        <table
-          style={{
-            ...styles.table,
-            minWidth: '1600px',
-            tableLayout: 'auto',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        <table className="hardware-table">
+          <colgroup>
+            <col style={{ width: '105px' }} />
+            <col style={{ width: '125px' }} />
+            <col style={{ width: '280px' }} />
+            <col style={{ width: '165px' }} />
+            <col style={{ width: '90px' }} />
+            <col style={{ width: '110px' }} />
+            <col style={{ width: '100px' }} />
+            <col style={{ width: '145px' }} />
+            <col style={{ width: '100px' }} />
+            <col style={{ width: '125px' }} />
+          </colgroup>
+
           <thead>
             <tr>
               {columns.map((column) => (
@@ -862,6 +849,7 @@ function HardwareInventory({
                   scope="col"
                   style={{
                     ...styles.valueCell,
+                    padding: '10px 11px',
                     background: '#f1f5f9',
                     color: '#334155',
                     fontWeight: 700,
@@ -892,11 +880,16 @@ function HardwareInventory({
                     component.category
                   );
 
+                  const isModel =
+                    column.label === 'Model';
+
                   return (
                     <td
                       key={column.label}
+                      title={value || undefined}
                       style={{
                         ...styles.valueCell,
+                        padding: '10px 11px',
                         background:
                           index % 2 === 0
                             ? '#ffffff'
@@ -905,9 +898,16 @@ function HardwareInventory({
                           column.label === 'Component'
                             ? 600
                             : 400,
-                        whiteSpace: 'nowrap',
-                        overflowWrap: 'normal',
+                        whiteSpace: isModel
+                          ? 'normal'
+                          : 'nowrap',
+                        overflowWrap: isModel
+                          ? 'anywhere'
+                          : 'normal',
                         wordBreak: 'normal',
+                        maxWidth: isModel
+                          ? '280px'
+                          : undefined,
                       }}
                     >
                       {value || '—'}
@@ -924,7 +924,6 @@ function HardwareInventory({
         <div className="ram-summary">
           <div className="ram-summary-item">
             <span>Total RAM</span>
-
             <strong>
               {ramInfo.total_gb !== undefined
                 ? `${ramInfo.total_gb} GB`
@@ -934,7 +933,6 @@ function HardwareInventory({
 
           <div className="ram-summary-item">
             <span>Modules Installed</span>
-
             <strong>
               {ramInfo.modules_installed ??
                 ramModules.length}
@@ -943,7 +941,6 @@ function HardwareInventory({
 
           <div className="ram-summary-item">
             <span>Slots Used</span>
-
             <strong>
               {ramInfo.slots_used ?? 'Not available'}
             </strong>
@@ -951,7 +948,6 @@ function HardwareInventory({
 
           <div className="ram-summary-item">
             <span>Slots Available</span>
-
             <strong>
               {ramInfo.slots_available ??
                 'Not available'}
@@ -972,8 +968,6 @@ function HardwareInventory({
 
 /* -------------------------------------------------------
    Custom asset fields
-
-   Only Asset Tag and Notes are retained.
 ------------------------------------------------------- */
 
 function CustomFieldsEditor({
@@ -996,7 +990,7 @@ function CustomFieldsEditor({
   const inputStyle = {
     width: '100%',
     maxWidth: '100%',
-    padding: '12px 13px',
+    padding: '11px 12px',
     border: '1px solid #cbd5e1',
     borderRadius: '8px',
     fontSize: '14px',
@@ -1028,10 +1022,7 @@ function CustomFieldsEditor({
             type="text"
             value={fields.assetTag}
             onChange={(event) =>
-              updateField(
-                'assetTag',
-                event.target.value
-              )
+              updateField('assetTag', event.target.value)
             }
             placeholder="e.g. IT-000123"
             style={inputStyle}
@@ -1302,8 +1293,6 @@ function AuditPage({
         );
       }
 
-      // Remove raw aliases to prevent duplicate
-      // information in the resulting record.
       const aliases = [
         'host',
         'hostname',
@@ -1473,7 +1462,7 @@ function AuditPage({
           }
 
           .audit-section {
-            margin-bottom: 22px;
+            margin-bottom: 18px;
           }
 
           .section-heading {
@@ -1481,13 +1470,13 @@ function AuditPage({
             justify-content: space-between;
             align-items: flex-start;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 10px;
           }
 
           .component-count {
             display: inline-flex;
             align-items: center;
-            padding: 7px 11px;
+            padding: 6px 10px;
             background: #eff6ff;
             color: #1d4ed8;
             border: 1px solid #dbeafe;
@@ -1497,18 +1486,37 @@ function AuditPage({
             white-space: nowrap;
           }
 
+          .hardware-table {
+            width: 100%;
+            min-width: 1250px;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 12px;
+          }
+
+          .hardware-table th,
+          .hardware-table td {
+            box-sizing: border-box;
+          }
+
+          .hardware-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+          }
+
           .ram-summary {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 12px;
-            margin-top: 18px;
+            gap: 10px;
+            margin-top: 15px;
           }
 
           .ram-summary-item {
             display: flex;
             flex-direction: column;
-            gap: 7px;
-            padding: 15px;
+            gap: 6px;
+            padding: 12px;
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 9px;
@@ -1521,7 +1529,7 @@ function AuditPage({
           }
 
           .ram-summary-item strong {
-            font-size: 17px;
+            font-size: 16px;
             font-weight: 700;
             color: #172554;
             overflow-wrap: anywhere;
@@ -1530,7 +1538,7 @@ function AuditPage({
           .custom-fields-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 20px;
+            gap: 18px;
           }
 
           .field-label {
@@ -1544,15 +1552,15 @@ function AuditPage({
           }
 
           .helper-text {
-            margin: 16px 0 0;
+            margin: 14px 0 0;
             color: #94a3b8;
             font-size: 12px;
             line-height: 1.7;
           }
 
           .status-message {
-            padding: 14px 16px;
-            margin-top: 20px;
+            padding: 12px 15px;
+            margin-top: 18px;
             border: 1px solid transparent;
             border-radius: 9px;
             font-size: 13px;
@@ -1583,24 +1591,24 @@ function AuditPage({
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 18px;
-            padding-bottom: 25px;
-            margin-bottom: 28px;
+            gap: 16px;
+            padding-bottom: 20px;
+            margin-bottom: 22px;
             border-bottom: 1px solid #e2e8f0;
           }
 
           .audit-logo {
             display: flex;
             align-items: center;
-            gap: 13px;
+            gap: 12px;
           }
 
           .audit-logo-icon {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 46px;
-            height: 46px;
+            width: 44px;
+            height: 44px;
             flex-shrink: 0;
             background: #2563eb;
             color: #ffffff;
@@ -1620,7 +1628,7 @@ function AuditPage({
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 10px 14px;
+            padding: 9px 12px;
             background: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 9px;
@@ -1643,14 +1651,28 @@ function AuditPage({
             align-items: center;
             flex-wrap: wrap;
             gap: 14px;
-            padding-top: 20px;
-            margin-top: 30px;
+            padding-top: 18px;
+            margin-top: 25px;
             border-top: 1px solid #e2e8f0;
             color: #94a3b8;
             font-size: 12px;
           }
 
-          @media (max-width: 900px) {
+          @media (min-width: 1500px) {
+            .hardware-table {
+              font-size: 13px;
+            }
+          }
+
+          @media (max-width: 1100px) {
+            .audit-container {
+              width: 97% !important;
+            }
+
+            .audit-card {
+              padding: 18px !important;
+            }
+
             .ram-summary {
               grid-template-columns: repeat(2, minmax(0, 1fr));
             }
@@ -1658,11 +1680,12 @@ function AuditPage({
 
           @media (max-width: 600px) {
             .audit-container {
-              width: 94% !important;
+              width: 96% !important;
             }
 
             .audit-card {
-              padding: 17px !important;
+              padding: 14px !important;
+              border-radius: 10px !important;
             }
 
             .custom-fields-grid {
@@ -1680,6 +1703,10 @@ function AuditPage({
             .audit-user {
               max-width: 100%;
             }
+
+            .audit-section {
+              margin-bottom: 14px;
+            }
           }
         `}
       </style>
@@ -1688,8 +1715,6 @@ function AuditPage({
         className="audit-container"
         style={styles.container}
       >
-        {/* Header */}
-
         <header className="audit-header">
           <div className="audit-logo">
             <div
@@ -1732,8 +1757,6 @@ function AuditPage({
           </div>
         </header>
 
-        {/* Audit Collection */}
-
         <section
           className="audit-card audit-section"
           style={styles.card}
@@ -1771,12 +1794,8 @@ function AuditPage({
           )}
         </section>
 
-        {/* Results */}
-
         {audit && (
           <>
-            {/* System Information */}
-
             <section
               className="audit-card audit-section"
               style={styles.card}
@@ -1790,15 +1809,10 @@ function AuditPage({
                 computer.
               </p>
 
-              {/* Four columns and one data row */}
               <SystemInformationTable audit={audit} />
             </section>
 
-            {/* Hardware Inventory */}
-
             <HardwareInventory audit={audit} />
-
-            {/* Additional Details */}
 
             <section
               className="audit-card audit-section"
@@ -1817,14 +1831,10 @@ function AuditPage({
               <AuditTable rows={additionalRows} />
             </section>
 
-            {/* Custom Asset Fields */}
-
             <CustomFieldsEditor
               fields={customFields}
               onChange={updateCustomFields}
             />
-
-            {/* Submit */}
 
             <section
               className="audit-card audit-section"
@@ -1853,12 +1863,8 @@ function AuditPage({
           </>
         )}
 
-        {/* Footer */}
-
         <footer className="audit-footer">
-          <span>
-            Computer Audit System
-          </span>
+          <span>Computer Audit System</span>
 
           <button
             type="button"
