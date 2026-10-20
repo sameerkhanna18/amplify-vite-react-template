@@ -394,8 +394,8 @@ function AuditTable({
 /* -------------------------------------------------------
    System Information table
 
-   Seven columns in this order:
-   Product Type | Make | Model / Part Number |
+   Columns:
+   Product Type | Make | Model | Part Number |
    Serial Number | CPU | Storage | RAM
 ------------------------------------------------------- */
 
@@ -451,19 +451,12 @@ function SystemInformationTable({
       value: audit.Make,
     },
     {
-      label: 'Model / Part Number',
-      value:
-        [
-          audit.Model,
-          audit.PartNumber,
-        ]
-          .filter(
-            (value) =>
-              value !== undefined &&
-              value !== null &&
-              value.trim() !== ''
-          )
-          .join(' / ') || 'Not available',
+      label: 'Model',
+      value: audit.Model,
+    },
+    {
+      label: 'Part Number',
+      value: audit.PartNumber,
     },
     {
       label: 'Serial Number',
@@ -488,7 +481,8 @@ function SystemInformationTable({
       <table
         style={{
           ...styles.table,
-          minWidth: '1100px',
+          minWidth: '1200px',
+          tableLayout: 'fixed',
         }}
       >
         <thead>
@@ -503,8 +497,8 @@ function SystemInformationTable({
                   color: '#334155',
                   fontWeight: 700,
                   whiteSpace: 'normal',
+                  overflowWrap: 'anywhere',
                   borderBottom: '1px solid #dbe3ed',
-                  width: `${100 / columns.length}%`,
                 }}
               >
                 {column.label}
@@ -520,6 +514,9 @@ function SystemInformationTable({
                 key={column.label}
                 style={{
                   ...styles.valueCell,
+                  whiteSpace: 'normal',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'normal',
                   borderBottom: 'none',
                 }}
               >
@@ -532,6 +529,8 @@ function SystemInformationTable({
     </div>
   );
 }
+
+
 
 /* -------------------------------------------------------
    Hardware inventory
