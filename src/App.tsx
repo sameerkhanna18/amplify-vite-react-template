@@ -394,10 +394,9 @@ function AuditTable({
 /* -------------------------------------------------------
    System Information table
 
-   Four columns in the required order:
-   Product Type | Make | Model | Serial Number
-
-   One row contains the corresponding values.
+   Seven columns in this order:
+   Product Type | Make | Model / Part Number |
+   Serial Number | CPU | Storage | RAM
 ------------------------------------------------------- */
 
 function SystemInformationTable({
@@ -405,6 +404,40 @@ function SystemInformationTable({
 }: {
   audit: AuditRecord;
 }) {
+  const ramInfo = getRamInfo(audit.Ram);
+  const disks = getDisks(audit.Storage);
+
+  const ramSize =
+    ramInfo?.total_gb !== undefined
+      ? `${ramInfo.total_gb} GB`
+      : 'Not available';
+
+  const storageSize =
+    disks
+      .map((disk) => {
+        const name =
+          textValue(disk.model) ||
+          textValue(disk.name) ||
+          textValue(disk.device) ||
+          'Storage';
+
+        const capacity = getCapacity(disk);
+
+        return capacity
+          ? `${name} (${capacity})`
+          : name;
+      })
+      .join(', ') || 'Not available';
+
+  const cpuModel =
+    audit.CPUInfo &&
+    typeof audit.CPUInfo === 'object'
+      ? firstValue(
+          audit.CPUInfo as Record<string, unknown>,
+          ['model', 'name']
+        )
+      : audit.CPU;
+
   const columns: Array<{
     label: string;
     value: unknown;
@@ -418,12 +451,35 @@ function SystemInformationTable({
       value: audit.Make,
     },
     {
-      label: 'Model',
-      value: audit.Model,
+      label: 'Model / Part Number',
+      value:
+        [
+          audit.Model,
+          audit.PartNumber,
+        ]
+          .filter(
+            (value) =>
+              value !== undefined &&
+              value !== null &&
+              value.trim() !== ''
+          )
+          .join(' / ') || 'Not available',
     },
     {
       label: 'Serial Number',
       value: audit.Serial,
+    },
+    {
+      label: 'CPU',
+      value: cpuModel,
+    },
+    {
+      label: 'Storage',
+      value: storageSize,
+    },
+    {
+      label: 'RAM',
+      value: ramSize,
     },
   ];
 
@@ -432,7 +488,7 @@ function SystemInformationTable({
       <table
         style={{
           ...styles.table,
-          minWidth: '700px',
+          minWidth: '1100px',
         }}
       >
         <thead>
@@ -446,9 +502,9 @@ function SystemInformationTable({
                   background: '#f1f5f9',
                   color: '#334155',
                   fontWeight: 700,
-                  whiteSpace: 'nowrap',
+                  whiteSpace: 'normal',
                   borderBottom: '1px solid #dbe3ed',
-                  width: '25%',
+                  width: `${100 / columns.length}%`,
                 }}
               >
                 {column.label}
@@ -465,7 +521,6 @@ function SystemInformationTable({
                 style={{
                   ...styles.valueCell,
                   borderBottom: 'none',
-                  width: '25%',
                 }}
               >
                 {displayValue(column.value)}
