@@ -554,30 +554,28 @@ function HardwareInventory({
       : getCpuFallback(audit.CPU);
 
   const components: Array<{
-    title: string;
-    item: HardwareItem;
-    category: 'cpu' | 'ram' | 'disk';
-  }> = [
-    {
-      title: 'CPU',
-      item: cpu,
-      category: 'cpu',
-    },
+  title: string;
+  item: HardwareItem;
+  category: 'cpu' | 'ram' | 'disk';
+}> = [
+  {
+    title: 'CPU',
+    item: cpu,
+    category: 'cpu',
+  },
 
-    ...ramModules.map((item, index) => ({
-      title: `RAM ${index + 1}`,
-      item,
-      category: 'ram' as const,
-    })),
+  ...ramModules.map((item) => ({
+    title: 'RAM',
+    item,
+    category: 'ram' as const,
+  })),
 
-    ...disks.map((item, index) => ({
-      title:
-        textValue(item.name) ||
-        `Disk ${index + 1}`,
-      item,
-      category: 'disk' as const,
-    })),
-  ];
+  ...disks.map((item) => ({
+    title: 'Storage',
+    item,
+    category: 'disk' as const,
+  })),
+];
 
   const columns: Array<{
     label: string;
