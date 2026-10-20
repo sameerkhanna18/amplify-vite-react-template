@@ -262,6 +262,7 @@ def get_ram_information():
 
         size_mb = device.get("size_mb")
 
+        # Skip empty RAM slots and devices without a valid size.
         if size_mb is None or size_mb <= 0:
             return
 
@@ -273,22 +274,43 @@ def get_ram_information():
             device.get("part_number")
         )
 
+        model = first_nonempty(
+            device.get("model"),
+            part_number,
+        )
+
         modules.append({
             "name": f"RAM {len(modules) + 1}",
+
+            # Manufacturer and model identification
             "manufacturer": manufacturer,
-            "model": first_nonempty(
-                device.get("model"),
-                part_number,
-            ),
+            "model": model,
+            "part_number": part_number,
+
+            # Serial and asset identification
             "serial": clean_value(
                 device.get("serial")
             ),
-            "part_number": part_number,
+            "asset_tag": clean_value(
+                device.get("asset_tag")
+            ),
+
+            # Memory capacity
             "size_mb": size_mb,
-            "capacity_gb": round(size_mb / 1024, 2),
+            "capacity_gb": round(
+                size_mb / 1024,
+                2,
+            ),
+
+            # Memory location and physical form
             "locator": clean_value(
                 device.get("locator")
             ),
+            "form_factor": clean_value(
+                device.get("form_factor")
+            ),
+
+            # Memory type and speed
             "type": clean_value(
                 device.get("type")
             ),
@@ -302,7 +324,12 @@ def get_ram_information():
         })
 
     for line in output.splitlines():
-        if re.match(r"^\s*Memory Device\s*$", line):
+
+        # Start a new physical memory device.
+        if re.match(
+            r"^\s*Memory Device\s*$",
+            line,
+        ):
             finish_device(current_device)
             current_device = {}
             slot_count += 1
@@ -322,9 +349,12 @@ def get_ram_information():
         key = match.group(1).strip().lower()
         value = match.group(2).strip()
 
+        # RAM capacity
         if key == "size":
+
             if value.lower() == "no module installed":
                 current_device["size_mb"] = None
+
             else:
                 capacity = re.match(
                     r"^(\d+)\s*(MB|GB|TB)$",
@@ -333,7 +363,10 @@ def get_ram_information():
                 )
 
                 if capacity:
-                    number = int(capacity.group(1))
+                    number = int(
+                        capacity.group(1)
+                    )
+
                     unit = capacity.group(2).upper()
 
                     multiplier = {
@@ -346,30 +379,50 @@ def get_ram_information():
                         number * multiplier
                     )
 
-        elif key == "locator":
-            current_device["locator"] = value
+        # RAM slot / location
+        elif key in (
+            "locator",
+            "device locator",
+        ):
+            if value and value.lower() not in (
+                "unknown",
+                "not specified",
+            ):
+                current_device["locator"] = value
 
+        # RAM physical form factor
+        elif key == "form factor":
+            current_device["form_factor"] = value
+
+        # RAM technology, e.g. DDR4 or DDR5
         elif key == "type":
             current_device["type"] = value
 
+        # RAM rated speed
         elif key == "speed":
             current_device["speed"] = value
 
+        # RAM configured operating speed
         elif key == "configured memory speed":
             current_device["configured_speed"] = value
 
+        # RAM manufacturer
         elif key == "manufacturer":
             current_device["manufacturer"] = value
 
+        # RAM serial number
         elif key == "serial number":
             current_device["serial"] = value
 
+        # RAM model / part number
         elif key == "part number":
             current_device["part_number"] = value
 
-        elif key in ("device locator",):
-            current_device["locator"] = value
+        # RAM asset tag
+        elif key == "asset tag":
+            current_device["asset_tag"] = value
 
+    # Process the last memory device.
     finish_device(current_device)
 
     total_mb = sum(
@@ -378,7 +431,10 @@ def get_ram_information():
     )
 
     return {
-        "total_gb": round(total_mb / 1024, 2),
+        "total_gb": round(
+            total_mb / 1024,
+            2,
+        ),
         "modules_installed": len(modules),
         "slots_used": len(modules),
         "slots_available": max(

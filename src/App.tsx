@@ -533,6 +533,19 @@ function SystemInformationTable({
    Rows represent CPU, RAM and storage components.
 ------------------------------------------------------- */
 
+/* -------------------------------------------------------
+   Hardware Inventory
+
+   Components:
+   - CPU
+   - RAM modules
+   - Storage devices
+
+   RAM includes manufacturer, model, part number,
+   serial, size, type, speed, form factor, asset tag,
+   and slot.
+------------------------------------------------------- */
+
 function HardwareInventory({
   audit,
 }: {
@@ -571,11 +584,13 @@ function HardwareInventory({
     })),
   ];
 
+  type Category = 'cpu' | 'ram' | 'disk';
+
   const columns: Array<{
     label: string;
     getValue: (
       item: HardwareItem,
-      category: 'cpu' | 'ram' | 'disk'
+      category: Category
     ) => string;
   }> = [
     {
@@ -662,6 +677,17 @@ function HardwareInventory({
     },
 
     {
+      label: 'Part Number',
+      getValue: (item) =>
+        getComponentValue(item, [
+          'part_number',
+          'partNumber',
+          'PartNumber',
+          'part number',
+        ]),
+    },
+
+    {
       label: 'Serial',
       getValue: (item) =>
         getComponentValue(item, [
@@ -677,10 +703,13 @@ function HardwareInventory({
 
     {
       label: 'Size',
-      getValue: (item, category) =>
-        category === 'ram' || category === 'disk'
-          ? getCapacity(item)
-          : '',
+      getValue: (item, category) => {
+        if (category === 'ram' || category === 'disk') {
+          return getCapacity(item);
+        }
+
+        return '';
+      },
     },
 
     {
@@ -707,6 +736,10 @@ function HardwareInventory({
             'speed',
             'current_speed',
             'currentSpeed',
+            'configured_speed',
+            'configuredSpeed',
+            'configured_memory_speed',
+            'configuredMemorySpeed',
             'max_speed',
             'maxSpeed',
             'max_clock_speed',
@@ -727,10 +760,13 @@ function HardwareInventory({
 
         const speedText = textValue(speed);
 
+        // Preserve units such as MHz, GHz and MT/s.
         if (/[a-z]/i.test(speedText)) {
           return speedText;
         }
 
+        // Convert a numeric CPU speed from MHz to GHz
+        // when appropriate.
         if (category === 'cpu') {
           const numericSpeed = Number(speed);
 
@@ -743,6 +779,32 @@ function HardwareInventory({
 
         return speedText;
       },
+    },
+
+    {
+      label: 'Form Factor',
+      getValue: (item, category) =>
+        category === 'ram'
+          ? getComponentValue(item, [
+              'form_factor',
+              'formFactor',
+              'FormFactor',
+              'form factor',
+            ])
+          : '',
+    },
+
+    {
+      label: 'Asset Tag',
+      getValue: (item, category) =>
+        category === 'ram'
+          ? getComponentValue(item, [
+              'asset_tag',
+              'assetTag',
+              'AssetTag',
+              'asset tag',
+            ])
+          : '',
     },
 
     {
@@ -816,8 +878,9 @@ function HardwareInventory({
           </h2>
 
           <p style={styles.sectionDescription}>
-            Hardware components detected during the audit.
-            Each row represents an individual component.
+            Hardware components detected during the
+            audit. Each row represents an individual
+            component.
           </p>
         </div>
 
@@ -827,20 +890,14 @@ function HardwareInventory({
       </div>
 
       <div style={styles.tableWrapper}>
-        <table className="hardware-table">
-          <colgroup>
-            <col style={{ width: '105px' }} />
-            <col style={{ width: '125px' }} />
-            <col style={{ width: '280px' }} />
-            <col style={{ width: '165px' }} />
-            <col style={{ width: '90px' }} />
-            <col style={{ width: '110px' }} />
-            <col style={{ width: '100px' }} />
-            <col style={{ width: '145px' }} />
-            <col style={{ width: '100px' }} />
-            <col style={{ width: '125px' }} />
-          </colgroup>
-
+        <table
+          style={{
+            ...styles.table,
+            minWidth: '1600px',
+            tableLayout: 'auto',
+            whiteSpace: 'nowrap',
+          }}
+        >
           <thead>
             <tr>
               {columns.map((column) => (
@@ -849,7 +906,6 @@ function HardwareInventory({
                   scope="col"
                   style={{
                     ...styles.valueCell,
-                    padding: '10px 11px',
                     background: '#f1f5f9',
                     color: '#334155',
                     fontWeight: 700,
@@ -880,16 +936,11 @@ function HardwareInventory({
                     component.category
                   );
 
-                  const isModel =
-                    column.label === 'Model';
-
                   return (
                     <td
                       key={column.label}
-                      title={value || undefined}
                       style={{
                         ...styles.valueCell,
-                        padding: '10px 11px',
                         background:
                           index % 2 === 0
                             ? '#ffffff'
@@ -898,16 +949,9 @@ function HardwareInventory({
                           column.label === 'Component'
                             ? 600
                             : 400,
-                        whiteSpace: isModel
-                          ? 'normal'
-                          : 'nowrap',
-                        overflowWrap: isModel
-                          ? 'anywhere'
-                          : 'normal',
+                        whiteSpace: 'nowrap',
+                        overflowWrap: 'normal',
                         wordBreak: 'normal',
-                        maxWidth: isModel
-                          ? '280px'
-                          : undefined,
                       }}
                     >
                       {value || '—'}
@@ -924,6 +968,7 @@ function HardwareInventory({
         <div className="ram-summary">
           <div className="ram-summary-item">
             <span>Total RAM</span>
+
             <strong>
               {ramInfo.total_gb !== undefined
                 ? `${ramInfo.total_gb} GB`
@@ -933,6 +978,7 @@ function HardwareInventory({
 
           <div className="ram-summary-item">
             <span>Modules Installed</span>
+
             <strong>
               {ramInfo.modules_installed ??
                 ramModules.length}
@@ -941,6 +987,7 @@ function HardwareInventory({
 
           <div className="ram-summary-item">
             <span>Slots Used</span>
+
             <strong>
               {ramInfo.slots_used ?? 'Not available'}
             </strong>
@@ -948,6 +995,7 @@ function HardwareInventory({
 
           <div className="ram-summary-item">
             <span>Slots Available</span>
+
             <strong>
               {ramInfo.slots_available ??
                 'Not available'}
