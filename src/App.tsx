@@ -536,7 +536,7 @@ function SystemInformationTable({
    Hardware inventory
 
    Columns represent attributes.
-   Rows represent CPU, RAM modules and disks.
+   Rows represent CPU, RAM modules and storage devices.
 ------------------------------------------------------- */
 
 function HardwareInventory({
@@ -554,28 +554,28 @@ function HardwareInventory({
       : getCpuFallback(audit.CPU);
 
   const components: Array<{
-  title: string;
-  item: HardwareItem;
-  category: 'cpu' | 'ram' | 'disk';
-}> = [
-  {
-    title: 'CPU',
-    item: cpu,
-    category: 'cpu',
-  },
+    title: string;
+    item: HardwareItem;
+    category: 'cpu' | 'ram' | 'disk';
+  }> = [
+    {
+      title: 'CPU',
+      item: cpu,
+      category: 'cpu',
+    },
 
-  ...ramModules.map((item) => ({
-    title: 'RAM',
-    item,
-    category: 'ram' as const,
-  })),
+    ...ramModules.map((item) => ({
+      title: 'RAM',
+      item,
+      category: 'ram' as const,
+    })),
 
-  ...disks.map((item) => ({
-    title: 'Storage',
-    item,
-    category: 'disk' as const,
-  })),
-];
+    ...disks.map((item) => ({
+      title: 'Storage',
+      item,
+      category: 'disk' as const,
+    })),
+  ];
 
   const columns: Array<{
     label: string;
@@ -586,34 +586,82 @@ function HardwareInventory({
   }> = [
     {
       label: 'Component',
-      getValue: (item, category) => {
+      getValue: (_item, category) => {
         if (category === 'cpu') {
           return 'CPU';
         }
 
         if (category === 'ram') {
-          return textValue(item.name) || 'RAM';
+          return 'RAM';
         }
 
-        return (
-          textValue(item.name) ||
-          textValue(item.device) ||
-          'Disk'
-        );
+        return 'Storage';
       },
     },
+
     {
       label: 'Make',
-      getValue: (item) =>
-        getComponentValue(item, [
-          'manufacturer',
-          'Manufacturer',
-          'make',
-          'Make',
-          'vendor',
-          'Vendor',
-        ]),
+      getValue: (item, category) => {
+        const make = firstValue(
+          item as Record<string, unknown>,
+          [
+            'manufacturer',
+            'Manufacturer',
+            'make',
+            'Make',
+            'vendor',
+            'Vendor',
+            'manufacturer_name',
+            'manufacturerName',
+            'vendor_name',
+            'vendorName',
+          ]
+        );
+
+        if (make !== '') {
+          return textValue(make);
+        }
+
+        const model = textValue(
+          firstValue(
+            item as Record<string, unknown>,
+            [
+              'model',
+              'Model',
+              'product_name',
+              'product',
+              'name',
+              'model_name',
+              'modelName',
+              'description',
+            ]
+          )
+        );
+
+        if (category === 'cpu') {
+          const match = model.match(
+            /\b(Intel|AMD|Apple|Qualcomm|ARM)\b/i
+          );
+
+          if (match) {
+            return match[1];
+          }
+        }
+
+        if (category === 'ram') {
+          const match = model.match(
+            /\b(Samsung|SK Hynix|Micron|Kingston|Crucial|Corsair|G\.Skill|ADATA|Transcend)\b/i
+          );
+
+          if (match) {
+            return match[1];
+          }
+        }
+
+        return '';
+      },
     },
+
     {
       label: 'Model',
       getValue: (item) =>
@@ -623,10 +671,14 @@ function HardwareInventory({
           'product_name',
           'product',
           'name',
+          'model_name',
+          'modelName',
+          'description',
         ]),
     },
+
     {
-      label: 'Serial Number',
+      label: 'Serial',
       getValue: (item) =>
         getComponentValue(item, [
           'serial',
@@ -634,43 +686,83 @@ function HardwareInventory({
           'serialNumber',
           'Serial',
           'SerialNumber',
+          'serial_no',
+          'serialNo',
         ]),
     },
+
     {
-      label: 'Part Number',
-      getValue: (item) =>
-        getComponentValue(item, [
-          'part_number',
-          'partNumber',
-          'PartNumber',
-          'part',
-        ]),
-    },
-    {
-      label: 'Capacity',
+      label: 'Size',
       getValue: (item, category) =>
         category === 'ram' || category === 'disk'
           ? getCapacity(item)
           : '',
     },
+
     {
-      label: 'Type / Architecture',
+      label: 'Type',
       getValue: (item) =>
         getComponentValue(item, [
           'type',
           'Type',
           'architecture',
+          'memory_type',
+          'memoryType',
+          'form_factor',
+          'formFactor',
+          'interface',
         ]),
     },
+
     {
       label: 'Speed',
-      getValue: (item) =>
-        getComponentValue(item, [
-          'speed',
-          'current_speed',
-          'Speed',
-        ]),
+      getValue: (item, category) => {
+        const speed = firstValue(
+          item as Record<string, unknown>,
+          [
+            'speed',
+            'current_speed',
+            'currentSpeed',
+            'max_speed',
+            'maxSpeed',
+            'max_clock_speed',
+            'maxClockSpeed',
+            'clock_speed',
+            'clockSpeed',
+            'Speed',
+          ]
+        );
+
+        if (
+          speed === '' ||
+          speed === undefined ||
+          speed === null
+        ) {
+          return '';
+        }
+
+        const speedText = textValue(speed);
+
+        // Keep existing units, such as MHz or GHz.
+        if (/[a-z]/i.test(speedText)) {
+          return speedText;
+        }
+
+        // Assume a plain numeric CPU speed is MHz.
+        if (category === 'cpu') {
+          const numericSpeed = Number(speed);
+
+          if (Number.isFinite(numericSpeed)) {
+            return numericSpeed >= 1000
+              ? `${(numericSpeed / 1000).toFixed(2)} GHz`
+              : `${numericSpeed} MHz`;
+          }
+        }
+
+        return speedText;
+      },
     },
+
     {
       label: 'Slot / Device',
       getValue: (item, category) => {
@@ -679,6 +771,10 @@ function HardwareInventory({
             'locator',
             'slot',
             'Slot',
+            'bank_locator',
+            'bankLocator',
+            'device_locator',
+            'deviceLocator',
           ]);
         }
 
@@ -686,35 +782,39 @@ function HardwareInventory({
           return getComponentValue(item, [
             'device',
             'Device',
+            'path',
+            'mount_point',
+            'mountPoint',
           ]);
         }
 
         return '';
       },
     },
+
     {
       label: 'CPU Cores',
       getValue: (item, category) =>
         category === 'cpu'
-          ? getComponentValue(item, ['cores'])
+          ? getComponentValue(item, [
+              'cores',
+              'core_count',
+              'coreCount',
+              'physical_cores',
+              'physicalCores',
+              'number_of_cores',
+              'NumberOfCores',
+            ])
           : '',
     },
+
     {
       label: 'Threads Per Core',
       getValue: (item, category) =>
         category === 'cpu'
           ? getComponentValue(item, [
               'threads_per_core',
-            ])
-          : '',
-    },
-    {
-      label: 'Hardware ID / WWN',
-      getValue: (item, category) =>
-        category === 'disk'
-          ? getComponentValue(item, [
-              'hardware_id',
-              'wwn',
+              'threadsPerCore',
             ])
           : '',
     },
@@ -749,7 +849,9 @@ function HardwareInventory({
         <table
           style={{
             ...styles.table,
-            minWidth: '1250px',
+            minWidth: '1600px',
+            tableLayout: 'auto',
+            whiteSpace: 'nowrap',
           }}
         >
           <thead>
@@ -803,6 +905,9 @@ function HardwareInventory({
                           column.label === 'Component'
                             ? 600
                             : 400,
+                        whiteSpace: 'nowrap',
+                        overflowWrap: 'normal',
+                        wordBreak: 'normal',
                       }}
                     >
                       {value || '—'}
@@ -819,6 +924,7 @@ function HardwareInventory({
         <div className="ram-summary">
           <div className="ram-summary-item">
             <span>Total RAM</span>
+
             <strong>
               {ramInfo.total_gb !== undefined
                 ? `${ramInfo.total_gb} GB`
@@ -828,6 +934,7 @@ function HardwareInventory({
 
           <div className="ram-summary-item">
             <span>Modules Installed</span>
+
             <strong>
               {ramInfo.modules_installed ??
                 ramModules.length}
@@ -836,6 +943,7 @@ function HardwareInventory({
 
           <div className="ram-summary-item">
             <span>Slots Used</span>
+
             <strong>
               {ramInfo.slots_used ?? 'Not available'}
             </strong>
@@ -843,6 +951,7 @@ function HardwareInventory({
 
           <div className="ram-summary-item">
             <span>Slots Available</span>
+
             <strong>
               {ramInfo.slots_available ??
                 'Not available'}
