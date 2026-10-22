@@ -141,29 +141,78 @@ def get_os_information():
 # ============================================================
 
 def detect_product_type(chassis, model):
-    chassis = chassis.lower()
-    model = model.lower()
+    chassis_value = clean_value(chassis).lower()
+    model_value = clean_value(model).lower()
 
-    if any(word in chassis for word in (
+    chassis_types = {
+        "1": "Other",
+        "2": "Unknown",
+        "3": "Desktop",
+        "4": "Desktop",
+        "5": "Mini Tower",
+        "6": "Tower",
+        "7": "All-in-One",
+        "8": "Portable",
+        "9": "Laptop",
+        "10": "Notebook",
+        "11": "Handheld",
+        "12": "Docking Station",
+        "13": "All-in-One",
+        "14": "Sub Notebook",
+        "15": "Space-saving",
+        "16": "Lunch Box",
+        "17": "Main Server Chassis",
+        "18": "Expansion Chassis",
+        "19": "Sub Chassis",
+        "20": "Bus Expansion Chassis",
+        "21": "Peripheral Chassis",
+        "22": "RAID Chassis",
+        "23": "Rack Mount Chassis",
+        "24": "Sealed-case PC",
+        "25": "Multi-system Chassis",
+        "26": "Compact PCI",
+        "27": "Advanced TCA",
+        "28": "Blade",
+        "29": "Blade Enclosure",
+        "30": "Tablet",
+        "31": "Convertible",
+        "32": "Detachable",
+        "33": "IoT Gateway",
+        "34": "Embedded PC",
+        "35": "Mini PC",
+        "36": "Stick PC",
+    }
+
+    if chassis_value.isdigit():
+        product_type = chassis_types.get(
+            chassis_value,
+            "Other",
+        )
+
+        if product_type != "Unknown":
+            return product_type
+
+    if any(word in chassis_value for word in (
         "laptop", "notebook", "portable",
-        "sub notebook", "tablet",
+        "sub notebook", "tablet", "convertible",
+        "detachable",
     )):
         return "Laptop"
 
-    if any(word in chassis for word in (
-        "desktop", "tower", "mini tower",
-        "low profile desktop", "pizza box",
+    if any(word in chassis_value for word in (
+        "desktop", "tower", "pizza box",
+        "space-saving", "all-in-one",
     )):
         return "Desktop"
 
-    if any(word in model for word in (
+    if any(word in model_value for word in (
         "laptop", "notebook", "thinkpad",
         "latitude", "vostro", "inspiron",
         "elitebook", "probook", "macbook",
     )):
         return "Laptop"
 
-    if any(word in model for word in (
+    if any(word in model_value for word in (
         "desktop", "optiplex", "thinkcentre",
         "prodesk", "elitedesk", "tower",
     )):
@@ -178,9 +227,11 @@ def get_system_information():
     chassis = get_dmi_value("chassis-type")
 
     part_number = first_nonempty(
-        get_dmi_value("system-sku-number"),
-        get_dmi_value("baseboard-product-name"),
-    )
+    get_dmi_value("system-sku-number"),
+    get_dmi_value("baseboard-product-name"),
+    get_dmi_value("baseboard-version"),
+)
+
 
     serial = first_nonempty(
         get_dmi_value("system-serial-number"),

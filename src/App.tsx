@@ -641,10 +641,17 @@ function SystemInformation({
           ['Hostname', audit.host],
           ['Manufacturer', audit.manufacturer],
           ['Model', audit.model],
-          ['Product Type', audit.chassis_type],
+          [
+  'Product Type',
+  audit.product_type &&
+  audit.product_type !== 'Unknown'
+    ? audit.product_type
+    : audit.chassis_type,
+],
+
           ['Product', audit.cpu],
           ['Serial Number', audit.serial],
-          ['SKU', audit.part_number],
+          ['Part Number', audit.part_number],
           ['System UUID', audit.system_uuid],
           ['Operating System', audit.os_version],
           ['Kernel', audit.kernel],
@@ -885,19 +892,19 @@ function AdditionalInformation({
       description="Motherboard identification and audit metadata."
     >
       <DataTable
-        rows={[
-          ['Motherboard Manufacturer', audit.motherboard.manufacturer],
-          ['Motherboard Model', audit.motherboard.model],
-          ['Motherboard Serial Number', audit.motherboard.serial],
-          ['IMEI', audit.imei],
-          [
-            'Collected At',
-            audit.collected_at
-              ? new Date(audit.collected_at).toLocaleString()
-              : '',
-          ],
-        ]}
-      />
+  rows={[
+    ['Hostname', audit.host],
+    ['Kernel', audit.kernel],
+    ['IMEI', audit.imei],
+    [
+      'Collected At',
+      audit.collected_at
+        ? new Date(audit.collected_at).toLocaleString()
+        : '',
+    ],
+  ]}
+/>
+
     </Section>
   );
 }
