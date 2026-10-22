@@ -612,46 +612,6 @@ function SystemInformation({
 }: {
   audit: AuditRecord;
 }) {
-  const totalStorage = audit.disks.reduce((total, disk) => {
-    if (disk.capacity_bytes != null) {
-      return total + Number(disk.capacity_bytes) / 1_000_000_000;
-    }
-
-    if (disk.capacity_gb != null) {
-      return total + Number(disk.capacity_gb);
-    }
-
-    if (disk.capacity_gib != null) {
-      return total + Number(disk.capacity_gib) * (1024 ** 3) / 1_000_000_000;
-    }
-
-    return total;
-  }, 0);
-
-  const cpuModel = firstValue(audit.cpu_info, [
-    'model',
-    'name',
-  ]);
-
-  const manufacturer = firstValue(
-    audit,
-    ['manufacturer'],
-  );
-
-  const model = firstValue(audit, ['model']);
-
-  const serial = firstValue(audit, ['serial']);
-
-  const partNumber = firstValue(audit, [
-    'part_number',
-  ]);
-
-  const productType =
-    audit.product_type &&
-    audit.product_type !== 'Unknown'
-      ? audit.product_type
-      : audit.chassis_type;
-
   return (
     <Section
       title="System Information"
@@ -659,35 +619,26 @@ function SystemInformation({
     >
       <DataTable
         rows={[
-          ['Hostname', audit.host],
-          ['Product Type', productType],
-          ['CPU', cpuModel],
-          ['Manufacturer', manufacturer],
-          ['Model', model],
-          ['Serial Number', serial],
-          ['Part Number', partNumber],
-          ['System UUID', audit.system_uuid],
-          ['Operating System', audit.os_version],
-          ['Kernel', audit.kernel],
-          ['System Architecture', audit.architecture],
           [
-            'Total RAM',
-            audit.ram.total_gb != null
-              ? `${audit.ram.total_gb} GB`
-              : '',
+            'Product Type',
+            audit.product_type &&
+            audit.product_type !== 'Unknown'
+              ? audit.product_type
+              : audit.chassis_type,
           ],
           [
-            'Total Storage',
-            audit.disks.length > 0
-              ? `${totalStorage.toFixed(2)} GB`
-              : '',
+            'CPU',
+            firstValue(audit.cpu_info, ['model', 'name']),
           ],
+          ['Manufacturer', audit.manufacturer],
+          ['Model', audit.model],
+          ['Serial Number', audit.serial],
+          ['Part Number', audit.part_number],
         ]}
       />
     </Section>
   );
 }
-
 
 /* =========================================================
    Combined hardware components

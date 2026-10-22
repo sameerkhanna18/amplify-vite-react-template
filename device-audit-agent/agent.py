@@ -300,9 +300,7 @@ def get_system_information():
     # Do not silently substitute the motherboard product name for
     # the system SKU. Only use system version/family as a fallback.
     part_number = first_nonempty(
-        system_sku,
-        system_version,
-        system_family,
+    get_dmi_value("system-sku-number"),
     )
 
     system_uuid = first_nonempty(
