@@ -8,6 +8,7 @@ import socket
 import subprocess
 import threading
 import webbrowser
+import glob
 
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -135,14 +136,44 @@ def detect_product_type():
 
 
 def get_system_information():
+    manufacturer = get_dmi_value("system-manufacturer")
+    model = get_dmi_value("system-product-name")
+    serial = get_dmi_value("system-serial-number")
+    part_number = get_dmi_value("system-sku-number")
+    system_uuid = get_dmi_value("system-uuid")
+
+    # Fallback to Linux firmware information.
+    firmware_paths = {
+        "manufacturer": "/sys/class/dmi/id/sys_vendor",
+        "model": "/sys/class/dmi/id/product_name",
+        "serial": "/sys/class/dmi/id/product_serial",
+        "part_number": "/sys/class/dmi/id/product_sku",
+        "system_uuid": "/sys/class/dmi/id/product_uuid",
+    }
+
+    values = {
+        "manufacturer": manufacturer,
+        "model": model,
+        "serial": serial,
+        "part_number": part_number,
+        "system_uuid": system_uuid,
+    }
+
+    for key, filepath in firmware_paths.items():
+        if values[key]:
+            continue
+
+        try:
+            with open(filepath, encoding="utf-8") as file:
+                values[key] = clean_value(file.read())
+        except OSError:
+            pass
+
     return {
-        "manufacturer": get_dmi_value("system-manufacturer"),
-        "model": get_dmi_value("system-product-name"),
-        "serial": get_dmi_value("system-serial-number"),
-        "part_number": get_dmi_value("system-sku-number"),
-        "system_uuid": get_dmi_value("system-uuid"),
+        **values,
         "product_type": detect_product_type(),
     }
+
 
 
 # ============================================================

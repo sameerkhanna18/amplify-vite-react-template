@@ -1,134 +1,105 @@
-import { useState } from 'react';
-
+import { useEffect, useState } from 'react';
 import { Authenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/data';
-
 import type { Schema } from '../amplify/data/resource';
-
 import '@aws-amplify/ui-react/styles.css';
-
 
 const client = generateClient<Schema>();
 
-const AUDIT_URL = 'http://127.0.0.1:8765/audit';
+const AUDIT_API = 'http://127.0.0.1:8765/audit';
 
-const CUSTOM_FIELDS_KEY = 'computer-audit-custom-fields';
-
+type DataObject = Record<string, unknown>;
 
 type HardwareItem = {
   [key: string]: unknown;
-
   name?: string;
   manufacturer?: string;
   model?: string;
   serial?: string;
   part_number?: string;
-
   capacity_gb?: number;
   size_mb?: number;
-
-  device?: string;
-  locator?: string;
+  speed?: string | number;
   type?: string;
-  speed?: string;
-
-  architecture?: string;
-  cores?: string | number;
-  threads_per_core?: string | number;
-
-  current_speed?: string;
-  identifier?: string;
-
-  wwn?: string;
-  hardware_id?: string;
-
-  form_factor?: string;
-  asset_tag?: string;
-  configured_speed?: string;
+  locator?: string;
 };
-
 
 type RamInfo = {
   total_gb?: number;
   modules_installed?: number;
-
   slots_used?: number;
   slots_available?: number;
   slots_total?: number;
-
   modules?: HardwareItem[];
-
   [key: string]: unknown;
 };
 
-
-type AuditData = {
-  host: string;
-
-  manufacturer: string;
-  model: string;
-  serial: string;
-  product_type: string;
-
-  part_number: string;
-  system_uuid: string;
-  hwid: string;
-  imei: string;
-
-  os_version: string;
-  kernel: string;
-
-  cpu: string;
-  cpu_info: HardwareItem;
-
-  ram: RamInfo;
-  disks: HardwareItem[];
-
-  collected_at: string;
+type AuditRecord = {
+  Host: string;
+  Make: string;
+  Model: string;
+  ProductType: string;
+  Serial: string;
+  PartNumber: string;
+  HWID: string;
+  IMEI: string;
+  OsVersion: string;
+  Kernel: string;
+  CPU: string;
+  CPUInfo: HardwareItem;
+  Ram: string | RamInfo;
+  Storage: string | HardwareItem | HardwareItem[];
+  AuditTime: string;
+  [key: string]: unknown;
 };
-
 
 type CustomFields = {
   assetTag: string;
   notes: string;
 };
 
+const CUSTOM_FIELDS_KEY = 'computer-audit-custom-fields';
 
 const emptyCustomFields: CustomFields = {
   assetTag: '',
   notes: '',
 };
 
-
 const styles = {
   page: {
     minHeight: '100vh',
-    padding: '24px 0 40px',
-    background: '#f5f7fb',
+    width: '100%',
+    boxSizing: 'border-box' as const,
+    background: '#f4f7fb',
     color: '#172033',
     fontFamily:
       'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif',
+    padding: '20px 0 40px',
+    overflowX: 'hidden' as const,
   },
 
   container: {
-    width: '96%',
-    maxWidth: '1600px',
+    width: 'min(98%, 1800px)',
     margin: '0 auto',
+    boxSizing: 'border-box' as const,
   },
 
   card: {
-    padding: '22px',
-    marginBottom: '18px',
+    minWidth: 0,
+    boxSizing: 'border-box' as const,
     background: '#ffffff',
     border: '1px solid #e2e8f0',
-    borderRadius: '14px',
+    borderRadius: '12px',
+    padding: 'clamp(14px, 2vw, 24px)',
     boxShadow: '0 3px 12px rgba(15, 23, 42, 0.035)',
+    marginBottom: '18px',
   },
 
-  heading: {
-    margin: '0 0 6px',
-    fontSize: '20px',
+  sectionTitle: {
+    fontSize: 'clamp(17px, 2vw, 20px)',
+    lineHeight: 1.4,
     fontWeight: 700,
+    margin: '0 0 6px',
     color: '#172554',
   },
 
@@ -140,22 +111,25 @@ const styles = {
   },
 
   button: {
-    padding: '11px 18px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     background: '#2563eb',
     color: '#ffffff',
     border: 'none',
     borderRadius: '8px',
+    padding: '11px 17px',
     fontSize: '14px',
     fontWeight: 600,
     cursor: 'pointer',
   },
 
   secondaryButton: {
-    padding: '10px 16px',
     background: '#ffffff',
     color: '#334155',
     border: '1px solid #cbd5e1',
     borderRadius: '8px',
+    padding: '10px 15px',
     fontSize: '13px',
     fontWeight: 600,
     cursor: 'pointer',
@@ -163,9 +137,12 @@ const styles = {
 
   tableWrapper: {
     width: '100%',
+    minWidth: 0,
     overflowX: 'auto' as const,
+    overflowY: 'visible' as const,
+    WebkitOverflowScrolling: 'touch' as const,
     border: '1px solid #e2e8f0',
-    borderRadius: '9px',
+    borderRadius: '8px',
   },
 
   table: {
@@ -175,27 +152,61 @@ const styles = {
   },
 
   labelCell: {
-    padding: '11px 13px',
+    width: '220px',
+    minWidth: '145px',
+    padding: '10px 12px',
     textAlign: 'left' as const,
     verticalAlign: 'top' as const,
     background: '#f8fafc',
     borderBottom: '1px solid #e9eef5',
     color: '#475569',
     fontWeight: 600,
-    minWidth: '170px',
+    overflowWrap: 'anywhere' as const,
   },
 
   valueCell: {
-    padding: '11px 13px',
+    padding: '10px 12px',
     textAlign: 'left' as const,
     verticalAlign: 'top' as const,
     borderBottom: '1px solid #e9eef5',
     color: '#1e293b',
-    overflowWrap: 'anywhere' as const,
+    lineHeight: 1.6,
     whiteSpace: 'pre-wrap' as const,
+    overflowWrap: 'anywhere' as const,
+    wordBreak: 'break-word' as const,
   },
 };
 
+/* ======================================================
+   GENERAL DATA HELPERS
+====================================================== */
+
+function isObject(value: unknown): value is DataObject {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value)
+  );
+}
+
+function firstValue(
+  source: DataObject,
+  keys: string[]
+): unknown {
+  for (const key of keys) {
+    const value = source[key];
+
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== ''
+    ) {
+      return value;
+    }
+  }
+
+  return '';
+}
 
 function textValue(value: unknown): string {
   if (
@@ -213,24 +224,277 @@ function textValue(value: unknown): string {
   return String(value);
 }
 
-
 function displayValue(value: unknown): string {
-  return textValue(value) || 'Not available';
+  const result = textValue(value);
+
+  return result || 'Not available';
 }
 
-
-function getCapacity(item: HardwareItem): string {
-  if (item.capacity_gb != null) {
-    return `${item.capacity_gb} GB`;
+function parseStructuredValue(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
   }
 
-  if (item.size_mb != null) {
-    return `${item.size_mb} MB`;
+  const trimmed = value.trim();
+
+  if (
+    !trimmed.startsWith('{') &&
+    !trimmed.startsWith('[')
+  ) {
+    return value;
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function getRamInfo(value: unknown): RamInfo | null {
+  const parsed = parseStructuredValue(value);
+
+  if (!isObject(parsed)) {
+    return null;
+  }
+
+  return parsed as RamInfo;
+}
+
+function getRamModules(value: unknown): HardwareItem[] {
+  const ram = getRamInfo(value);
+
+  if (!ram || !Array.isArray(ram.modules)) {
+    return [];
+  }
+
+  return ram.modules.filter(
+    (item): item is HardwareItem => isObject(item)
+  );
+}
+
+function getDisks(value: unknown): HardwareItem[] {
+  const parsed = parseStructuredValue(value);
+
+  if (Array.isArray(parsed)) {
+    return parsed.filter(
+      (item): item is HardwareItem => isObject(item)
+    );
+  }
+
+  if (isObject(parsed)) {
+    if (
+      'device' in parsed ||
+      'capacity_gb' in parsed ||
+      'model' in parsed
+    ) {
+      return [parsed as HardwareItem];
+    }
+  }
+
+  return [];
+}
+
+function getComponentValue(
+  item: HardwareItem,
+  keys: string[]
+): string {
+  return textValue(
+    firstValue(item as DataObject, keys)
+  );
+}
+
+function getCapacity(item: HardwareItem): string {
+  const capacity = firstValue(item as DataObject, [
+    'capacity_gb',
+    'capacityGb',
+    'size_gb',
+    'sizeGb',
+  ]);
+
+  if (capacity !== '') {
+    const number = Number(capacity);
+
+    return Number.isFinite(number)
+      ? `${number} GB`
+      : textValue(capacity);
+  }
+
+  const sizeMb = firstValue(item as DataObject, [
+    'size_mb',
+    'sizeMb',
+  ]);
+
+  if (sizeMb !== '') {
+    const number = Number(sizeMb);
+
+    return Number.isFinite(number)
+      ? `${(number / 1024).toFixed(2)} GB`
+      : textValue(sizeMb);
+  }
+
+  const size = firstValue(item as DataObject, [
+    'size',
+    'capacity',
+    'Size',
+  ]);
+
+  return textValue(size);
+}
+
+function getManufacturer(
+  item: HardwareItem,
+  category: 'cpu' | 'ram' | 'disk' | 'system'
+): string {
+  const manufacturer = firstValue(
+    item as DataObject,
+    [
+      'manufacturer',
+      'Manufacturer',
+      'make',
+      'Make',
+      'vendor',
+      'Vendor',
+      'manufacturer_name',
+      'manufacturerName',
+      'vendor_name',
+      'vendorName',
+    ]
+  );
+
+  if (manufacturer !== '') {
+    return textValue(manufacturer);
+  }
+
+  const model = getComponentValue(item, [
+    'model',
+    'Model',
+    'product_name',
+    'product',
+    'name',
+    'model_name',
+    'modelName',
+    'description',
+  ]);
+
+  if (category === 'cpu') {
+    const match = model.match(
+      /\b(Intel|AMD|Apple|Qualcomm|ARM)\b/i
+    );
+
+    return match ? match[1] : '';
+  }
+
+  if (category === 'ram') {
+    const match = model.match(
+      /\b(Samsung|SK Hynix|Micron|Kingston|Crucial|Corsair|G\.Skill|ADATA|Transcend)\b/i
+    );
+
+    return match ? match[1] : '';
+  }
+
+  if (category === 'disk') {
+    const match = model.match(
+      /\b(Samsung|Western Digital|WDC|Seagate|Toshiba|Micron|Kingston|Crucial|Intel|SanDisk|SK Hynix|KIOXIA|ADATA)\b/i
+    );
+
+    return match ? match[1] : '';
   }
 
   return '';
 }
 
+function getModel(item: HardwareItem): string {
+  return getComponentValue(item, [
+    'model',
+    'Model',
+    'product_name',
+    'product',
+    'model_name',
+    'modelName',
+    'name',
+    'description',
+  ]);
+}
+
+function getPartNumber(item: HardwareItem): string {
+  return getComponentValue(item, [
+    'part_number',
+    'partNumber',
+    'PartNumber',
+    'part number',
+    'sku',
+    'SKU',
+    'system_sku',
+    'system_sku_number',
+    'product_number',
+    'productNumber',
+  ]);
+}
+
+function getSerial(item: HardwareItem): string {
+  return getComponentValue(item, [
+    'serial',
+    'Serial',
+    'serial_number',
+    'serialNumber',
+    'SerialNumber',
+    'serial_no',
+    'serialNo',
+  ]);
+}
+
+function getSpeed(item: HardwareItem): string {
+  const value = firstValue(item as DataObject, [
+    'speed',
+    'current_speed',
+    'currentSpeed',
+    'configured_speed',
+    'configuredSpeed',
+    'configured_memory_speed',
+    'configuredMemorySpeed',
+    'max_speed',
+    'maxSpeed',
+    'max_mhz',
+    'cpu_mhz',
+    'clock_speed',
+    'clockSpeed',
+  ]);
+
+  if (value === '') {
+    return '';
+  }
+
+  const speed = Number(value);
+
+  if (
+    typeof value === 'number' ||
+    (typeof value === 'string' && value.trim() !== '' &&
+      Number.isFinite(speed))
+  ) {
+    if (speed >= 1000) {
+      return `${(speed / 1000).toFixed(2)} GHz`;
+    }
+
+    return `${speed} MHz`;
+  }
+
+  return textValue(value);
+}
+
+function getCpuFallback(cpu: string): HardwareItem {
+  return {
+    name: 'CPU',
+    manufacturer: '',
+    model: cpu,
+    serial: '',
+    part_number: '',
+  };
+}
+
+/* ======================================================
+   REUSABLE TABLE
+====================================================== */
 
 function AuditTable({
   rows,
@@ -241,8 +505,8 @@ function AuditTable({
     <div style={styles.tableWrapper}>
       <table style={styles.table}>
         <tbody>
-          {rows.map(([label, value], index) => (
-            <tr key={label}>
+          {rows.map(([key, value], index) => (
+            <tr key={key}>
               <th
                 scope="row"
                 style={{
@@ -250,10 +514,10 @@ function AuditTable({
                   borderBottom:
                     index === rows.length - 1
                       ? 'none'
-                      : styles.labelCell.borderBottom,
+                      : '1px solid #e9eef5',
                 }}
               >
-                {label}
+                {key}
               </th>
 
               <td
@@ -262,7 +526,7 @@ function AuditTable({
                   borderBottom:
                     index === rows.length - 1
                       ? 'none'
-                      : styles.valueCell.borderBottom,
+                      : '1px solid #e9eef5',
                 }}
               >
                 {displayValue(value)}
@@ -275,196 +539,290 @@ function AuditTable({
   );
 }
 
+/* ======================================================
+   SYSTEM INFORMATION
+====================================================== */
 
-/* =========================================================
-   Hardware inventory
-========================================================= */
+function SystemInformation({
+  audit,
+}: {
+  audit: AuditRecord;
+}) {
+  const ram = getRamInfo(audit.Ram);
+  const disks = getDisks(audit.Storage);
+
+  const cpuModel = getComponentValue(
+    audit.CPUInfo,
+    ['model', 'name']
+  ) || audit.CPU;
+
+  const storageSummary = disks
+    .map((disk) => {
+      const name =
+        getModel(disk) ||
+        textValue(disk.name) ||
+        textValue(disk.device) ||
+        'Storage device';
+
+      const capacity = getCapacity(disk);
+
+      return capacity
+        ? `${name} (${capacity})`
+        : name;
+    })
+    .join(', ');
+
+  const rows: Array<[string, unknown]> = [
+    ['Hostname', audit.Host],
+    ['Product Type', audit.ProductType],
+    ['Manufacturer', audit.Make],
+    ['Model', audit.Model],
+    ['Part Number', audit.PartNumber],
+    ['Serial Number', audit.Serial],
+    ['CPU', cpuModel],
+    [
+      'RAM',
+      ram?.total_gb !== undefined
+        ? `${ram.total_gb} GB`
+        : '',
+    ],
+    ['Storage', storageSummary],
+    ['Operating System', audit.OsVersion],
+  ];
+
+  return (
+    <section style={styles.card}>
+      <h2 style={styles.sectionTitle}>
+        System Information
+      </h2>
+
+      <p style={styles.description}>
+        Computer identification, processor, memory,
+        storage, and operating system.
+      </p>
+
+      <AuditTable rows={rows} />
+    </section>
+  );
+}
+
+/* ======================================================
+   HARDWARE INVENTORY
+====================================================== */
 
 function HardwareInventory({
   audit,
 }: {
-  audit: AuditData;
+  audit: AuditRecord;
 }) {
+  const ramInfo = getRamInfo(audit.Ram);
+  const ramModules = getRamModules(audit.Ram);
+  const disks = getDisks(audit.Storage);
+
+  const cpu = audit.CPUInfo &&
+    Object.keys(audit.CPUInfo).length > 0
+      ? audit.CPUInfo
+      : getCpuFallback(audit.CPU);
+
   const components: Array<{
-    category: string;
+    category: 'CPU' | 'RAM' | 'Storage';
     item: HardwareItem;
+    id: string;
   }> = [
     {
       category: 'CPU',
-      item: audit.cpu_info,
+      item: cpu,
+      id: 'cpu',
     },
 
-    ...(audit.ram.modules ?? []).map((item) => ({
-      category: 'RAM',
+    ...ramModules.map((item, index) => ({
+      category: 'RAM' as const,
       item,
+      id: `ram-${index}`,
     })),
 
-    ...audit.disks.map((item) => ({
-      category: 'Storage',
+    ...disks.map((item, index) => ({
+      category: 'Storage' as const,
       item,
+      id: `disk-${index}`,
     })),
   ];
-
 
   const columns = [
-    {
-      label: 'Component',
-      getValue: (
-        category: string,
-        _item: HardwareItem
-      ) => category,
-    },
-
-    {
-      label: 'Manufacturer',
-      getValue: (
-        _category: string,
-        item: HardwareItem
-      ) => item.manufacturer,
-    },
-
-    {
-      label: 'Model',
-      getValue: (
-        _category: string,
-        item: HardwareItem
-      ) => item.model || item.name,
-    },
-
-    {
-      label: 'Serial Number',
-      getValue: (
-        _category: string,
-        item: HardwareItem
-      ) => item.serial,
-    },
-
-    {
-      label: 'Part Number',
-      getValue: (
-        _category: string,
-        item: HardwareItem
-      ) => item.part_number,
-    },
-
-    {
-      label: 'Capacity',
-      getValue: (
-        category: string,
-        item: HardwareItem
-      ) => {
-        if (category === 'RAM' || category === 'Storage') {
-          return getCapacity(item);
-        }
-
-        return '';
-      },
-    },
-
-    {
-      label: 'Type',
-      getValue: (
-        _category: string,
-        item: HardwareItem
-      ) => item.type || item.architecture,
-    },
-
-    {
-      label: 'Speed',
-      getValue: (
-        _category: string,
-        item: HardwareItem
-      ) => item.speed || item.current_speed,
-    },
-
-    {
-      label: 'Form Factor',
-      getValue: (
-        _category: string,
-        item: HardwareItem
-      ) => item.form_factor,
-    },
-
-    {
-      label: 'Asset Tag',
-      getValue: (
-        _category: string,
-        item: HardwareItem
-      ) => item.asset_tag,
-    },
-
-    {
-      label: 'Slot / Device',
-      getValue: (
-        category: string,
-        item: HardwareItem
-      ) => {
-        if (category === 'RAM') {
-          return item.locator;
-        }
-
-        if (category === 'Storage') {
-          return item.device;
-        }
-
-        return '';
-      },
-    },
-
-    {
-      label: 'CPU Cores',
-      getValue: (
-        category: string,
-        item: HardwareItem
-      ) => category === 'CPU'
-        ? item.cores
-        : '',
-    },
-
-    {
-      label: 'Threads Per Core',
-      getValue: (
-        category: string,
-        item: HardwareItem
-      ) => category === 'CPU'
-        ? item.threads_per_core
-        : '',
-    },
+    'Component',
+    'Manufacturer',
+    'Model',
+    'Part Number',
+    'Serial Number',
+    'Capacity',
+    'Type',
+    'Speed',
+    'Form Factor',
+    'Slot / Device',
+    'Cores',
+    'Threads',
+    'Hardware ID',
   ];
 
+  function valueFor(
+    item: HardwareItem,
+    category: 'CPU' | 'RAM' | 'Storage',
+    column: string
+  ): string {
+    switch (column) {
+      case 'Component':
+        return category;
+
+      case 'Manufacturer':
+        return getManufacturer(
+          item,
+          category === 'CPU'
+            ? 'cpu'
+            : category === 'RAM'
+              ? 'ram'
+              : 'disk'
+        );
+
+      case 'Model':
+        return getModel(item);
+
+      case 'Part Number':
+        return getPartNumber(item);
+
+      case 'Serial Number':
+        return getSerial(item);
+
+      case 'Capacity':
+        return category === 'RAM' ||
+          category === 'Storage'
+          ? getCapacity(item)
+          : '';
+
+      case 'Type':
+        return getComponentValue(item, [
+          'type',
+          'Type',
+          'architecture',
+          'form_factor',
+          'formFactor',
+          'interface',
+          'memory_type',
+          'memoryType',
+        ]);
+
+      case 'Speed':
+        return getSpeed(item);
+
+      case 'Form Factor':
+        return category === 'RAM'
+          ? getComponentValue(item, [
+              'form_factor',
+              'formFactor',
+              'FormFactor',
+            ])
+          : '';
+
+      case 'Slot / Device':
+        return category === 'RAM'
+          ? getComponentValue(item, [
+              'locator',
+              'device_locator',
+              'deviceLocator',
+              'bank_locator',
+              'bankLocator',
+              'slot',
+            ])
+          : category === 'Storage'
+            ? getComponentValue(item, [
+                'device',
+                'path',
+                'name',
+              ])
+            : '';
+
+      case 'Cores':
+        return category === 'CPU'
+          ? getComponentValue(item, [
+              'cores',
+              'core_count',
+              'coreCount',
+              'physical_cores',
+              'physicalCores',
+              'number_of_cores',
+              'NumberOfCores',
+            ])
+          : '';
+
+      case 'Threads':
+        return category === 'CPU'
+          ? getComponentValue(item, [
+              'threads_per_core',
+              'threadsPerCore',
+              'logical_processors',
+              'logicalProcessors',
+            ])
+          : '';
+
+      case 'Hardware ID':
+        return getComponentValue(item, [
+          'hardware_id',
+          'hardwareId',
+          'wwn',
+          'WWN',
+          'identifier',
+          'device_id',
+          'deviceId',
+        ]);
+
+      default:
+        return '';
+    }
+  }
 
   return (
     <section style={styles.card}>
-      <h2 style={styles.heading}>
-        Hardware Inventory
-      </h2>
+      <div className="section-heading">
+        <div>
+          <h2 style={styles.sectionTitle}>
+            Hardware Inventory
+          </h2>
 
-      <p style={styles.description}>
-        Individual CPU, RAM and storage components
-        detected on this computer.
-      </p>
+          <p style={styles.description}>
+            Individual processor, memory module, and
+            internal storage information.
+          </p>
+        </div>
+
+        <span className="component-count">
+          {components.length} components
+        </span>
+      </div>
 
       <div style={styles.tableWrapper}>
         <table
+          className="hardware-table"
           style={{
             ...styles.table,
-            minWidth: '1400px',
+            minWidth: '1250px',
           }}
         >
           <thead>
             <tr>
               {columns.map((column) => (
                 <th
-                  key={column.label}
+                  key={column}
                   scope="col"
                   style={{
                     ...styles.valueCell,
                     background: '#f1f5f9',
+                    color: '#334155',
                     fontWeight: 700,
                     whiteSpace: 'nowrap',
+                    borderBottom:
+                      '1px solid #dbe3ed',
                   }}
                 >
-                  {column.label}
+                  {column}
                 </th>
               ))}
             </tr>
@@ -473,33 +831,32 @@ function HardwareInventory({
           <tbody>
             {components.map((component, index) => (
               <tr
-                key={`${component.category}-${index}`}
+                key={component.id}
+                style={{
+                  background:
+                    index % 2 === 0
+                      ? '#ffffff'
+                      : '#f8fafc',
+                }}
               >
                 {columns.map((column) => (
                   <td
-                    key={column.label}
+                    key={column}
                     style={{
                       ...styles.valueCell,
                       background:
                         index % 2 === 0
                           ? '#ffffff'
-                          : '#fafcff',
-                      whiteSpace: 'nowrap',
+                          : '#f8fafc',
+                      whiteSpace: 'normal',
+                      minWidth: '100px',
                     }}
                   >
-                    {displayValue(
-                      column.getValue(
-                        component.category,
-                        component.item
-                      )
-                    ) === 'Not available'
-                      ? '—'
-                      : textValue(
-                          column.getValue(
-                            component.category,
-                            component.item
-                          )
-                        )}
+                    {valueFor(
+                      component.item,
+                      component.category,
+                      column
+                    ) || '—'}
                   </td>
                 ))}
               </tr>
@@ -508,68 +865,110 @@ function HardwareInventory({
         </table>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(150px, 1fr))',
-          gap: '12px',
-          marginTop: '16px',
-        }}
-      >
-        {[
-          ['Total RAM', `${audit.ram.total_gb ?? 0} GB`],
-          [
-            'Modules Installed',
-            audit.ram.modules_installed ??
-              audit.ram.modules?.length ??
-              0,
-          ],
-          ['Slots Used', audit.ram.slots_used ?? 0],
-          [
-            'Slots Available',
-            audit.ram.slots_available ?? 0,
-          ],
-        ].map(([label, value]) => (
-          <div
-            key={String(label)}
-            style={{
-              padding: '14px',
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '9px',
-            }}
-          >
-            <div
-              style={{
-                fontSize: '12px',
-                color: '#64748b',
-              }}
-            >
-              {label}
-            </div>
+      {ramInfo && (
+        <div className="ram-summary">
+          <SummaryItem
+            label="Total RAM"
+            value={
+              ramInfo.total_gb !== undefined
+                ? `${ramInfo.total_gb} GB`
+                : 'Not available'
+            }
+          />
 
-            <strong
-              style={{
-                display: 'block',
-                marginTop: '6px',
-                fontSize: '17px',
-                color: '#172554',
-              }}
-            >
-              {value}
-            </strong>
-          </div>
-        ))}
-      </div>
+          <SummaryItem
+            label="Modules Installed"
+            value={
+              ramInfo.modules_installed ??
+              ramModules.length
+            }
+          />
+
+          <SummaryItem
+            label="Slots Used"
+            value={ramInfo.slots_used ?? 'Not available'}
+          />
+
+          <SummaryItem
+            label="Slots Available"
+            value={
+              ramInfo.slots_available ??
+              'Not available'
+            }
+          />
+
+          <SummaryItem
+            label="Total Slots"
+            value={ramInfo.slots_total ?? 'Not available'}
+          />
+        </div>
+      )}
+
+      {components.length === 0 && (
+        <p>
+          No hardware components were returned by the
+          audit service.
+        </p>
+      )}
     </section>
   );
 }
 
+function SummaryItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: unknown;
+}) {
+  return (
+    <div className="summary-item">
+      <span>{label}</span>
+      <strong>{displayValue(value)}</strong>
+    </div>
+  );
+}
 
-/* =========================================================
-   Custom asset fields
-========================================================= */
+/* ======================================================
+   ADDITIONAL DETAILS
+====================================================== */
+
+function AdditionalDetails({
+  audit,
+}: {
+  audit: AuditRecord;
+}) {
+  const rows: Array<[string, unknown]> = [
+    ['HWID / System UUID', audit.HWID],
+    ['IMEI', audit.IMEI],
+    ['Operating System', audit.OsVersion],
+    ['Kernel', audit.Kernel],
+    [
+      'Audit Collected',
+      audit.AuditTime
+        ? new Date(audit.AuditTime).toLocaleString()
+        : '',
+    ],
+  ];
+
+  return (
+    <section style={styles.card}>
+      <h2 style={styles.sectionTitle}>
+        Additional Details
+      </h2>
+
+      <p style={styles.description}>
+        System identifiers and collection timestamp.
+      </p>
+
+      <AuditTable rows={rows} />
+    </section>
+  );
+}
+
+/* ======================================================
+   CUSTOM ASSET FIELDS
+====================================================== */
 
 function CustomFieldsEditor({
   fields,
@@ -578,110 +977,93 @@ function CustomFieldsEditor({
   fields: CustomFields;
   onChange: (fields: CustomFields) => void;
 }) {
+  function updateField(
+    key: keyof CustomFields,
+    value: string
+  ) {
+    onChange({
+      ...fields,
+      [key]: value,
+    });
+  }
+
   const inputStyle = {
     width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box' as const,
     padding: '11px 12px',
     border: '1px solid #cbd5e1',
     borderRadius: '8px',
     fontSize: '14px',
     fontFamily: 'inherit',
+    color: '#0f172a',
+    background: '#ffffff',
   };
 
   return (
     <section style={styles.card}>
-      <h2 style={styles.heading}>
+      <h2 style={styles.sectionTitle}>
         Additional Asset Fields
       </h2>
 
       <p style={styles.description}>
-        Add an internal asset tag and any notes
-        associated with this computer.
+        Record your internal asset reference and notes.
       </p>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '18px',
-        }}
-      >
-        <label>
+      <div className="custom-fields-grid">
+        <label className="field-label">
           Asset Tag
 
           <input
+            type="text"
             value={fields.assetTag}
             onChange={(event) =>
-              onChange({
-                ...fields,
-                assetTag: event.target.value,
-              })
+              updateField('assetTag', event.target.value)
             }
             placeholder="e.g. IT-000123"
-            style={{
-              ...inputStyle,
-              marginTop: '8px',
-            }}
+            style={inputStyle}
           />
         </label>
 
-        <label>
+        <label className="field-label">
           Notes
 
           <textarea
             value={fields.notes}
             onChange={(event) =>
-              onChange({
-                ...fields,
-                notes: event.target.value,
-              })
+              updateField('notes', event.target.value)
             }
             rows={3}
-            placeholder="Additional notes..."
+            placeholder="Enter additional notes..."
             style={{
               ...inputStyle,
-              marginTop: '8px',
               resize: 'vertical',
             }}
           />
         </label>
       </div>
 
-      <p
-        style={{
-          marginTop: '14px',
-          color: '#94a3b8',
-          fontSize: '12px',
-        }}
-      >
-        Asset tags and notes are saved in this browser.
-        They are not yet submitted to AWS.
+      <p className="helper-text">
+        Asset tags and notes are stored in this browser
+        only. They are not submitted to AWS by this version.
       </p>
     </section>
   );
 }
 
-
-/* =========================================================
-   Main audit page
-========================================================= */
+/* ======================================================
+   MAIN AUDIT PAGE
+====================================================== */
 
 function AuditPage({
   signOut,
   user,
 }: {
   signOut?: () => void;
-  user?: {
-    signInDetails?: {
-      loginId?: string;
-    };
-  };
+  user?: { signInDetails?: { loginId?: string } };
 }) {
-  const [audit, setAudit] = useState<AuditData | null>(
-    null
-  );
-
-  const [busy, setBusy] = useState(false);
+  const [audit, setAudit] =
+    useState<AuditRecord | null>(null);
 
   const [message, setMessage] = useState('');
 
@@ -689,25 +1071,31 @@ function AuditPage({
     'success' | 'info' | 'error'
   >('info');
 
+  const [busy, setBusy] = useState(false);
 
   const [customFields, setCustomFields] =
-    useState<CustomFields>(() => {
-      try {
-        const saved = localStorage.getItem(
-          CUSTOM_FIELDS_KEY
-        );
+    useState<CustomFields>(emptyCustomFields);
 
-        return saved
-          ? {
-              ...emptyCustomFields,
-              ...JSON.parse(saved),
-            }
-          : emptyCustomFields;
-      } catch {
-        return emptyCustomFields;
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(
+        CUSTOM_FIELDS_KEY
+      );
+
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+
+        if (isObject(parsed)) {
+          setCustomFields({
+            assetTag: textValue(parsed.assetTag),
+            notes: textValue(parsed.notes),
+          });
+        }
       }
-    });
-
+    } catch {
+      // Continue with empty custom fields.
+    }
+  }, []);
 
   function updateCustomFields(fields: CustomFields) {
     setCustomFields(fields);
@@ -719,13 +1107,11 @@ function AuditPage({
       );
     } catch {
       setMessageType('error');
-
       setMessage(
-        'Unable to save the custom fields in this browser.'
+        'The fields were updated but could not be saved in this browser.'
       );
     }
   }
-
 
   async function loadAudit() {
     setBusy(true);
@@ -733,148 +1119,247 @@ function AuditPage({
     setAudit(null);
 
     try {
-      const response = await fetch(AUDIT_URL, {
+      const response = await fetch(AUDIT_API, {
         method: 'GET',
         cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+        },
       });
 
       if (!response.ok) {
         throw new Error(
-          `Audit request failed: HTTP ${response.status}.`
+          `The local audit service returned HTTP ${response.status}.`
         );
       }
 
-      const raw: unknown = await response.json();
+      const data: unknown = await response.json();
 
-      if (
-        !raw ||
-        typeof raw !== 'object' ||
-        Array.isArray(raw)
-      ) {
+      if (!isObject(data)) {
         throw new Error(
-          'The audit agent returned invalid data.'
+          'The audit service returned invalid JSON data.'
         );
       }
 
-      const data = raw as Record<string, unknown>;
+      const raw = data;
 
-      if (
-        typeof data.host !== 'string' ||
-        !data.host.trim()
-      ) {
-        throw new Error(
-          'The audit response does not contain a hostname.'
-        );
-      }
+      const rawCpu = firstValue(raw, [
+        'cpu_info',
+        'CPUInfo',
+        'cpuInfo',
+      ]);
 
-      const cpuInfo =
-        data.cpu_info &&
-        typeof data.cpu_info === 'object' &&
-        !Array.isArray(data.cpu_info)
-          ? data.cpu_info as HardwareItem
-          : {
-              name: 'CPU',
-              model: textValue(data.cpu),
-            };
+      const cpuInfo: HardwareItem = isObject(rawCpu)
+        ? (rawCpu as HardwareItem)
+        : getCpuFallback(
+            textValue(
+              firstValue(raw, [
+                'cpu',
+                'CPU',
+                'processor',
+              ])
+            )
+          );
 
-      const ram =
-        data.ram &&
-        typeof data.ram === 'object' &&
-        !Array.isArray(data.ram)
-          ? data.ram as RamInfo
-          : {};
+      const rawRam = firstValue(raw, [
+        'ram',
+        'Ram',
+        'RAM',
+        'memory',
+      ]);
 
-      const disks = Array.isArray(data.disks)
-        ? data.disks.filter(
-            (item): item is HardwareItem =>
-              item !== null &&
-              typeof item === 'object' &&
-              !Array.isArray(item)
-          )
-        : [];
+      const rawStorage = firstValue(raw, [
+        'disks',
+        'Storage',
+        'storage',
+        'Disks',
+      ]);
 
-      const record: AuditData = {
-        host: textValue(data.host),
+      const ram = parseStructuredValue(rawRam);
+      const storage = parseStructuredValue(rawStorage);
 
-        manufacturer: textValue(data.manufacturer),
-        model: textValue(data.model),
-        serial: textValue(data.serial),
-        product_type: textValue(data.product_type),
+      const record: AuditRecord = {
+        Host: textValue(
+          firstValue(raw, [
+            'host',
+            'Host',
+            'hostname',
+            'Hostname',
+            'computer_name',
+          ])
+        ),
 
-        part_number: textValue(data.part_number),
-        system_uuid: textValue(data.system_uuid),
-        hwid: textValue(data.hwid),
-        imei: textValue(data.imei),
+        Make: textValue(
+          firstValue(raw, [
+            'manufacturer',
+            'Manufacturer',
+            'Make',
+            'make',
+            'vendor',
+          ])
+        ),
 
-        os_version: textValue(data.os_version),
-        kernel: textValue(data.kernel),
+        Model: textValue(
+          firstValue(raw, [
+            'model',
+            'Model',
+            'system_product_name',
+          ])
+        ),
 
-        cpu: textValue(data.cpu),
-        cpu_info: cpuInfo,
+        ProductType: textValue(
+          firstValue(raw, [
+            'product_type',
+            'ProductType',
+            'productType',
+          ])
+        ),
 
-        ram,
-        disks,
+        Serial: textValue(
+          firstValue(raw, [
+            'serial',
+            'Serial',
+            'serial_number',
+            'SerialNumber',
+          ])
+        ),
 
-        collected_at: textValue(data.collected_at),
+        PartNumber: textValue(
+          firstValue(raw, [
+            'part_number',
+            'PartNumber',
+            'partNumber',
+            'system_sku_number',
+            'sku',
+          ])
+        ),
+
+        HWID: textValue(
+          firstValue(raw, [
+            'hwid',
+            'HWID',
+            'system_uuid',
+            'SystemUUID',
+          ])
+        ),
+
+        IMEI: textValue(
+          firstValue(raw, [
+            'imei',
+            'IMEI',
+          ])
+        ),
+
+        OsVersion: textValue(
+          firstValue(raw, [
+            'os_version',
+            'OsVersion',
+            'OperatingSystem',
+          ])
+        ),
+
+        Kernel: textValue(
+          firstValue(raw, [
+            'kernel',
+            'Kernel',
+          ])
+        ),
+
+        CPU: textValue(
+          firstValue(cpuInfo as DataObject, [
+            'model',
+            'name',
+          ]) ||
+            firstValue(raw, [
+              'cpu',
+              'CPU',
+              'processor',
+            ])
+        ),
+
+        CPUInfo: cpuInfo,
+
+        Ram: (
+          ram === '' ? '' : ram
+        ) as string | RamInfo,
+
+        Storage: (
+          storage === '' ? '' : storage
+        ) as string | HardwareItem | HardwareItem[],
+
+        AuditTime: textValue(
+          firstValue(raw, [
+            'collected_at',
+            'AuditTime',
+            'audit_time',
+          ])
+        ) || new Date().toISOString(),
       };
 
-      setAudit(record);
+      if (!record.Host.trim()) {
+        throw new Error(
+          'No hostname was returned. Check the JSON from agent.py.'
+        );
+      }
 
+      setAudit(record);
       setMessageType('success');
 
       setMessage(
-        'Audit collected successfully. Review the information before submitting it to AWS.'
+        'Audit collected successfully. Review the hardware details before submitting to AWS.'
       );
-
     } catch (error) {
       setMessageType('error');
 
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : 'Unable to collect audit information.'
-      );
-
+      if (
+        error instanceof TypeError &&
+        /fetch/i.test(error.message)
+      ) {
+        setMessage(
+          'Cannot connect to the local audit service. Check that agent.py is running on this computer and that http://127.0.0.1:8765/audit is accessible.'
+        );
+      } else {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : 'Unable to load audit information.'
+        );
+      }
     } finally {
       setBusy(false);
     }
   }
 
-
   async function submitAudit() {
-    if (!audit) return;
+    if (!audit) {
+      return;
+    }
 
     setBusy(true);
     setMessage('');
 
     try {
-      /*
-       * These fields match the existing DeviceAudit
-       * submission in your Amplify application.
-       *
-       * Extend the Amplify schema before submitting
-       * additional fields such as asset tags, notes,
-       * HWID, IMEI or detailed hardware objects.
-       */
-
       const result =
         await client.models.DeviceAudit.create({
-          Host: audit.host,
-          Make: audit.manufacturer,
-          Model: audit.model,
-          Serial: audit.serial,
+          Host: audit.Host,
+          Make: audit.Make,
+          Model: audit.Model,
+          Serial: audit.Serial,
+          OsVersion: audit.OsVersion,
+          Kernel: audit.Kernel,
+          CPU: audit.CPU,
 
-          OsVersion: audit.os_version,
-          Kernel: audit.kernel,
-          CPU: audit.cpu,
+          Ram:
+            typeof audit.Ram === 'string'
+              ? audit.Ram
+              : JSON.stringify(audit.Ram),
 
-          Ram: JSON.stringify(audit.ram),
+          Storage:
+            typeof audit.Storage === 'string'
+              ? audit.Storage
+              : JSON.stringify(audit.Storage),
 
-          Storage: JSON.stringify(audit.disks),
-
-          AuditTime:
-            audit.collected_at ||
-            new Date().toISOString(),
+          AuditTime: audit.AuditTime,
         });
 
       if (result.errors?.length || !result.data) {
@@ -882,7 +1367,7 @@ function AuditPage({
           result.errors
             ?.map((error) => error.message)
             .join('; ') ||
-            'Unable to save the audit to AWS.'
+            'AWS did not return a saved audit record.'
         );
       }
 
@@ -891,7 +1376,6 @@ function AuditPage({
       setMessage(
         'Success! The computer audit was saved to AWS Amplify.'
       );
-
     } catch (error) {
       setMessageType('error');
 
@@ -900,75 +1384,135 @@ function AuditPage({
           ? error.message
           : 'The audit submission failed.'
       );
-
     } finally {
       setBusy(false);
     }
   }
 
-
-  const additionalRows: Array<[string, unknown]> = audit
-    ? [
-        ['Hostname', audit.host],
-        ['Manufacturer', audit.manufacturer],
-        ['Product Type', audit.product_type],
-        ['Part Number', audit.part_number],
-        ['System UUID / HWID', audit.system_uuid],
-        ['IMEI', audit.imei],
-        ['Operating System', audit.os_version],
-        ['Kernel', audit.kernel],
-        [
-          'Collected Time',
-          audit.collected_at
-            ? new Date(
-                audit.collected_at
-              ).toLocaleString()
-            : '',
-        ],
-      ]
-    : [];
-
-
   return (
     <main style={styles.page}>
       <style>
         {`
-          * {
-            box-sizing: border-box;
-          }
-
-          html, body, #root {
+          html {
             min-height: 100%;
-            margin: 0;
+            height: auto;
+            overflow-y: auto !important;
+            overflow-x: hidden;
+            background: #f4f7fb;
           }
 
           body {
+            min-height: 100%;
+            height: auto;
+            margin: 0;
+            overflow-y: auto !important;
             overflow-x: hidden;
+            background: #f4f7fb;
+          }
+
+          #root {
+            min-height: 100vh;
+            height: auto;
+            overflow: visible;
+          }
+
+          *, *::before, *::after {
+            box-sizing: border-box;
           }
 
           button:disabled {
+            cursor: not-allowed !important;
             opacity: 0.6;
-            cursor: not-allowed;
           }
 
-          input, textarea {
-            max-width: 100%;
-          }
-
-          .audit-header {
+          .section-heading {
             display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: flex-start;
             flex-wrap: wrap;
-            gap: 16px;
-            padding-bottom: 20px;
-            margin-bottom: 22px;
-            border-bottom: 1px solid #e2e8f0;
+            gap: 10px;
           }
 
-          .status {
+          .component-count {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #dbeafe;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+          }
+
+          .hardware-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+          }
+
+          .hardware-table th {
+            text-align: left;
+          }
+
+          .ram-summary {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+          }
+
+          .summary-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 9px;
+            min-width: 0;
+          }
+
+          .summary-item span {
+            font-size: 12px;
+            color: #64748b;
+          }
+
+          .summary-item strong {
+            font-size: 15px;
+            font-weight: 700;
+            color: #172554;
+            overflow-wrap: anywhere;
+          }
+
+          .custom-fields-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+          }
+
+          .field-label {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+            color: #475569;
+            font-size: 13px;
+            font-weight: 600;
+          }
+
+          .helper-text {
+            margin: 14px 0 0;
+            color: #94a3b8;
+            font-size: 12px;
+            line-height: 1.7;
+          }
+
+          .status-message {
             padding: 12px 15px;
             margin-top: 18px;
+            border: 1px solid transparent;
             border-radius: 9px;
             font-size: 13px;
             line-height: 1.7;
@@ -976,92 +1520,176 @@ function AuditPage({
           }
 
           .status-success {
-            color: #166534;
             background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-          }
-
-          .status-error {
-            color: #991b1b;
-            background: #fef2f2;
-            border: 1px solid #fecaca;
+            border-color: #bbf7d0;
+            color: #166534;
           }
 
           .status-info {
-            color: #1e40af;
             background: #eff6ff;
-            border: 1px solid #bfdbfe;
+            border-color: #bfdbfe;
+            color: #1e40af;
+          }
+
+          .status-error {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #991b1b;
+          }
+
+          .audit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding-bottom: 20px;
+            margin-bottom: 22px;
+            border-bottom: 1px solid #e2e8f0;
+          }
+
+          .audit-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+          }
+
+          .audit-logo-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            flex-shrink: 0;
+            background: #2563eb;
+            color: #ffffff;
+            border-radius: 12px;
+            font-size: 23px;
+            font-weight: 700;
+          }
+
+          .audit-subtitle {
+            margin: 5px 0 0;
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.6;
+          }
+
+          .audit-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 9px;
+            color: #475569;
+            font-size: 12px;
+            overflow-wrap: anywhere;
+            max-width: 100%;
+          }
+
+          .audit-user-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            flex-shrink: 0;
           }
 
           .audit-footer {
             display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: center;
             flex-wrap: wrap;
             gap: 14px;
-            margin-top: 24px;
             padding-top: 18px;
+            margin-top: 25px;
             border-top: 1px solid #e2e8f0;
             color: #94a3b8;
             font-size: 12px;
+          }
+
+          @media (max-width: 1100px) {
+            .ram-summary {
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+          }
+
+          @media (max-width: 700px) {
+            .ram-summary {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .custom-fields-grid {
+              grid-template-columns: minmax(0, 1fr);
+            }
+
+            .audit-header {
+              align-items: flex-start;
+            }
+          }
+
+          @media (max-width: 420px) {
+            .ram-summary {
+              grid-template-columns: minmax(0, 1fr);
+            }
           }
         `}
       </style>
 
       <div style={styles.container}>
         <header className="audit-header">
-          <div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: '30px',
-                fontWeight: 750,
-                letterSpacing: '-0.7px',
-                color: '#172554',
-              }}
+          <div className="audit-logo">
+            <div
+              className="audit-logo-icon"
+              aria-hidden="true"
             >
-              Computer Audit
-            </h1>
+              ◈
+            </div>
 
-            <p
-              style={{
-                margin: '5px 0 0',
-                color: '#64748b',
-                fontSize: '13px',
-              }}
-            >
-              Hardware inventory and asset management
-            </p>
+            <div>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: 'clamp(23px, 3vw, 30px)',
+                  lineHeight: 1.3,
+                  fontWeight: 750,
+                  letterSpacing: '-0.7px',
+                  color: '#172554',
+                }}
+              >
+                Computer Audit
+              </h1>
+
+              <p className="audit-subtitle">
+                Hardware inventory and asset management
+              </p>
+            </div>
           </div>
 
-          <div
-            style={{
-              padding: '10px 13px',
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '9px',
-              fontSize: '12px',
-              color: '#475569',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            Signed in as{' '}
-            <strong>
-              {user?.signInDetails?.loginId ??
-                'Authenticated user'}
-            </strong>
+          <div className="audit-user">
+            <span className="audit-user-dot" />
+
+            <span>
+              Signed in as{' '}
+              <strong>
+                {user?.signInDetails?.loginId ??
+                  'Authenticated user'}
+              </strong>
+            </span>
           </div>
         </header>
 
-
         <section style={styles.card}>
-          <h2 style={styles.heading}>
+          <h2 style={styles.sectionTitle}>
             Audit Collection
           </h2>
 
           <p style={styles.description}>
-            Connect to the local Ubuntu audit agent
-            to retrieve the computer's hardware information.
+            Connect to the local Ubuntu audit service to
+            retrieve the computer's hardware information.
           </p>
 
           <button
@@ -1081,75 +1709,28 @@ function AuditPage({
             <div
               role="status"
               aria-live="polite"
-              className={`status status-${messageType}`}
+              className={`status-message status-${messageType}`}
             >
               {message}
             </div>
           )}
         </section>
 
-
         {audit && (
           <>
-            <section style={styles.card}>
-              <h2 style={styles.heading}>
-                System Information
-              </h2>
-
-              <p style={styles.description}>
-                Primary identification details for
-                this computer.
-              </p>
-
-              <AuditTable
-                rows={[
-                  ['Hostname', audit.host],
-                  ['Product Type', audit.product_type],
-                  ['Manufacturer', audit.manufacturer],
-                  ['Model', audit.model],
-                  ['Part Number', audit.part_number],
-                  ['Serial Number', audit.serial],
-                  ['CPU', audit.cpu],
-                  [
-                    'Total RAM',
-                    audit.ram.total_gb !== undefined
-                      ? `${audit.ram.total_gb} GB`
-                      : '',
-                  ],
-                  [
-                    'Storage Devices',
-                    audit.disks.length,
-                  ],
-                ]}
-              />
-            </section>
-
+            <SystemInformation audit={audit} />
 
             <HardwareInventory audit={audit} />
 
-
-            <section style={styles.card}>
-              <h2 style={styles.heading}>
-                Additional Details
-              </h2>
-
-              <p style={styles.description}>
-                System identifiers, operating system
-                information and collection time.
-              </p>
-
-              <AuditTable rows={additionalRows} />
-            </section>
-
+            <AdditionalDetails audit={audit} />
 
             <CustomFieldsEditor
               fields={customFields}
               onChange={updateCustomFields}
             />
 
-
             <section style={styles.card}>
-              <h2 style={styles.heading}>
+              <h2 style={styles.sectionTitle}>
                 Submit Audit
               </h2>
 
@@ -1172,14 +1753,13 @@ function AuditPage({
           </>
         )}
 
-
         <footer className="audit-footer">
           <span>Computer Audit System</span>
 
           <button
             type="button"
             style={styles.secondaryButton}
-            onClick={() => signOut?.()}
+            onClick={signOut}
           >
             Sign Out
           </button>
@@ -1189,10 +1769,9 @@ function AuditPage({
   );
 }
 
-
-/* =========================================================
-   Application entry point
-========================================================= */
+/* ======================================================
+   APPLICATION ENTRY POINT
+====================================================== */
 
 export default function App() {
   return (
