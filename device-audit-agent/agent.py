@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import json
-import os
 import platform
 import re
 import shutil
@@ -234,6 +233,7 @@ def get_cpu_information():
             fields[key.strip().lower()] = value.strip()
 
     vendor_id = fields.get("vendor id", "")
+
     model = first_nonempty(
         fields.get("model name"),
         fields.get("cpu"),
@@ -252,12 +252,8 @@ def get_cpu_information():
     elif "Qualcomm" in model:
         manufacturer = "Qualcomm"
     else:
-        manufacturer = first_nonempty(
-            fields.get("vendor id")
-        )
+        manufacturer = first_nonempty(vendor_id)
 
-    # A model string often identifies the manufacturer even
-    # when the CPU vendor ID is unavailable.
     if not manufacturer:
         match = re.match(
             r"^\s*(Intel|AMD|Apple|Qualcomm)\b",
@@ -284,7 +280,6 @@ def get_cpu_information():
     max_mhz = fields.get("cpu max mhz", "")
     min_mhz = fields.get("cpu min mhz", "")
 
-    # Try sysfs if lscpu doesn't expose a usable frequency.
     if not current_mhz:
         current_mhz = read_file(
             "/sys/devices/system/cpu/cpu0/cpufreq/"
@@ -344,7 +339,6 @@ def get_ram_information():
 
         size_mb = item.get("size_mb")
 
-        # Empty physical memory slots are not installed modules.
         if not isinstance(size_mb, (int, float)) or size_mb <= 0:
             return
 
@@ -357,7 +351,7 @@ def get_ram_information():
         )
 
         modules.append({
-            "name": f"RAM {len(modules) + 1}",
+            "name": "RAM",
             "manufacturer": manufacturer,
             "model": first_nonempty(
                 item.get("model"),
@@ -421,7 +415,10 @@ def get_ram_information():
             elif value.lower() == "no module installed":
                 device["size_mb"] = 0
 
-        elif key in ("locator", "device locator"):
+        elif key == "locator":
+            device["locator"] = value
+
+        elif key == "device locator":
             device["locator"] = value
 
         elif key == "bank locator":
@@ -454,7 +451,10 @@ def get_ram_information():
         elif key == "rank":
             device["rank"] = value
 
-        elif key in ("minimum voltage", "configured voltage"):
+        elif key in (
+            "minimum voltage",
+            "configured voltage",
+        ):
             device["voltage"] = value
 
     finish_device(device)
@@ -537,7 +537,6 @@ def get_disk_information():
         path = item.get("path") or f"/dev/{name}"
 
         properties = get_udev_properties(path)
-
         sys_path = f"/sys/block/{name}"
 
         vendor = first_nonempty(
@@ -585,12 +584,6 @@ def get_disk_information():
             if match:
                 vendor = match.group(1)
 
-        if not vendor:
-            vendor = properties.get("ID_VENDOR", "")
-
-        if not model:
-            model = properties.get("ID_MODEL", "")
-
         transport = first_nonempty(
             item.get("tran"),
             properties.get("ID_BUS"),
@@ -605,7 +598,7 @@ def get_disk_information():
                 transport = "MMC"
 
         disks.append({
-            "name": f"Disk {len(disks) + 1}",
+            "name": "Storage",
             "device": path,
             "manufacturer": clean_value(vendor),
             "model": clean_value(model),
@@ -801,8 +794,6 @@ class AuditHandler(BaseHTTPRequestHandler):
                 self.send_json(200, collect_audit())
 
             except Exception:
-                # Do not return system details or stack traces
-                # to the browser when collection fails.
                 self.send_json(
                     500,
                     {"error": "Failed to collect audit data"},
