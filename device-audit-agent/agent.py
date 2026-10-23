@@ -7,7 +7,6 @@ import shutil
 import socket
 import subprocess
 import threading
-import time
 import webbrowser
 
 from datetime import datetime
@@ -53,11 +52,14 @@ def run_command(command, timeout=15):
     return ""
 
 
-def run_sudo_command(command, timeout=15):
-    if shutil.which("sudo") is None:
-        return ""
+def run_sudo_command(command):
+    """
+    Run commands through non-interactive sudo.
 
-    return run_command(["sudo", "-n"] + command, timeout=timeout)
+    Configure passwordless sudo for the required dmidecode
+    commands if firmware information is otherwise unavailable.
+    """
+    return run_command(["sudo", "-n"] + command)
 
 
 def clean_value(value):
@@ -73,7 +75,6 @@ def clean_value(value):
         "not specified",
         "not provided",
         "not applicable",
-        "not available",
         "to be filled by o.e.m.",
         "to be filled by oem",
         "default string",
@@ -112,14 +113,10 @@ def get_dmi_value(field):
     )
 
 
-def get_dmi_section(section):
-    return run_sudo_command(
-        ["dmidecode", "--type", str(section)],
-        timeout=20,
-    )
-
-
-def parse_dmi_fields(output):
+def parse_key_value_output(output):
+    """
+    Convert dmidecode or similar key/value output into a dictionary.
+    """
     result = {}
 
     for line in output.splitlines():
@@ -127,10 +124,20 @@ def parse_dmi_fields(output):
             continue
 
         key, value = line.split(":", 1)
-
-        result[key.strip().lower()] = clean_value(value)
+        result[key.strip().lower()] = value.strip()
 
     return result
+
+
+def get_dmidecode_section(section_type):
+    """
+    Return complete dmidecode output for a hardware section.
+    """
+    return run_sudo_command([
+        "dmidecode",
+        "--type",
+        str(section_type),
+    ])
 
 
 # ============================================================
@@ -145,7 +152,10 @@ def get_os_information():
     }
 
     try:
-        with open("/etc/os-release", encoding="utf-8") as file:
+        with open(
+            "/etc/os-release",
+            encoding="utf-8",
+        ) as file:
             for line in file:
                 if line.startswith("PRETTY_NAME="):
                     result["name"] = (
@@ -154,6 +164,7 @@ def get_os_information():
                         .strip('"')
                     )
                     break
+
     except OSError:
         pass
 
@@ -208,10 +219,10 @@ def detect_product_type(chassis, model):
     }
 
     if chassis_value.isdigit():
-        product_type = chassis_types.get(chassis_value, "Other")
+        result = chassis_types.get(chassis_value, "")
 
-        if product_type != "Unknown":
-            return product_type
+        if result and result != "Unknown":
+            return result
 
     if any(word in chassis_value for word in (
         "laptop",
@@ -262,104 +273,67 @@ def detect_product_type(chassis, model):
 def get_system_information():
     manufacturer = first_nonempty(
         get_dmi_value("system-manufacturer"),
-        read_file("/sys/class/dmi/id/sys_vendor"),
-    )
-
-    model = first_nonempty(
-        get_dmi_value("system-product-name"),
-        read_file("/sys/class/dmi/id/product_name"),
-    )
-
-    chassis = first_nonempty(
-        get_dmi_value("chassis-type"),
-        read_file("/sys/class/dmi/id/chassis_type"),
-    )
-
-    # A computer's SKU is not necessarily its motherboard part number.
-    # Prefer the actual system SKU when firmware provides one.
-    system_sku = first_nonempty(
-        get_dmi_value("system-sku-number"),
-        read_file("/sys/class/dmi/id/product_sku"),
-    )
-
-    system_version = first_nonempty(
-        get_dmi_value("system-version"),
-        read_file("/sys/class/dmi/id/product_version"),
-    )
-
-    system_family = first_nonempty(
-        get_dmi_value("system-family"),
-        read_file("/sys/class/dmi/id/product_family"),
-    )
-
-    system_serial = first_nonempty(
-        get_dmi_value("system-serial-number"),
-        read_file("/sys/class/dmi/id/product_serial"),
-    )
-
-    # Do not silently substitute the motherboard product name for
-    # the system SKU. Only use system version/family as a fallback.
-    part_number = first_nonempty(
-    get_dmi_value("system-sku-number"),
-    )
-
-    system_uuid = first_nonempty(
-        get_dmi_value("system-uuid"),
-        read_file("/sys/class/dmi/id/product_uuid"),
-    )
-
-    board_manufacturer = first_nonempty(
         get_dmi_value("baseboard-manufacturer"),
-        read_file("/sys/class/dmi/id/board_vendor"),
     )
 
-    board_model = first_nonempty(
-        get_dmi_value("baseboard-product-name"),
-        read_file("/sys/class/dmi/id/board_name"),
-    )
+    model = get_dmi_value("system-product-name")
+    chassis = get_dmi_value("chassis-type")
 
-    board_serial = first_nonempty(
-        get_dmi_value("baseboard-serial-number"),
-        read_file("/sys/class/dmi/id/board_serial"),
-    )
+    # The system SKU is the preferred system part-number source.
+    system_sku = get_dmi_value("system-sku-number")
 
-    board_part_number = first_nonempty(
+    # Do not assume the motherboard version is the computer SKU.
+    # Use these only as fallbacks when the actual system SKU
+    # is unavailable.
+    board_model = get_dmi_value("baseboard-product-name")
+    board_version = get_dmi_value("baseboard-version")
+
+    part_number = first_nonempty(
+        system_sku,
         get_dmi_value("baseboard-part-number"),
-        read_file("/sys/class/dmi/id/board_part_number"),
+        board_model,
+        board_version,
     )
 
-    board_version = first_nonempty(
-        get_dmi_value("baseboard-version"),
-        read_file("/sys/class/dmi/id/board_version"),
+    serial = first_nonempty(
+        get_dmi_value("system-serial-number"),
     )
 
-    board_asset_tag = first_nonempty(
-        get_dmi_value("baseboard-asset-tag"),
-        read_file("/sys/class/dmi/id/board_asset_tag"),
+    system_uuid = get_dmi_value("system-uuid")
+
+    board_manufacturer = get_dmi_value(
+        "baseboard-manufacturer"
     )
 
-    # CPU manufacturer is deliberately not used as the
-    # motherboard manufacturer.
+    board_serial = get_dmi_value(
+        "baseboard-serial-number"
+    )
+
     motherboard = {
         "name": "Motherboard",
         "manufacturer": board_manufacturer,
         "model": board_model,
         "serial": board_serial,
-        "part_number": board_part_number,
+        "part_number": first_nonempty(
+            get_dmi_value("baseboard-part-number"),
+            board_model,
+        ),
         "version": board_version,
-        "asset_tag": board_asset_tag,
         "product": board_model,
+        "asset_tag": get_dmi_value("baseboard-asset-tag"),
     }
 
     return {
         "manufacturer": manufacturer,
         "model": model,
-        "serial": system_serial,
+        "serial": serial,
         "part_number": part_number,
         "system_sku": system_sku,
-        "system_version": system_version,
         "system_uuid": system_uuid,
-        "product_type": detect_product_type(chassis, model),
+        "product_type": detect_product_type(
+            chassis,
+            model,
+        ),
         "chassis_type": chassis,
         "motherboard": motherboard,
     }
@@ -371,7 +345,6 @@ def get_system_information():
 
 def get_cpu_information():
     output = run_command(["lscpu"])
-
     fields = {}
 
     for line in output.splitlines():
@@ -388,31 +361,32 @@ def get_cpu_information():
         platform.machine(),
     )
 
-    cpu_vendor = first_nonempty(
-        fields.get("vendor"),
-        vendor_id,
-    )
-
     manufacturer = ""
 
-    if "genuineintel" in vendor_id.lower():
+    if "GenuineIntel" in vendor_id:
         manufacturer = "Intel"
-    elif "authenticamd" in vendor_id.lower():
+
+    elif "AuthenticAMD" in vendor_id:
         manufacturer = "AMD"
-    elif "intel" in cpu_vendor.lower():
-        manufacturer = "Intel"
-    elif "amd" in cpu_vendor.lower():
-        manufacturer = "AMD"
-    elif "apple" in model.lower():
+
+    elif "Apple" in model:
         manufacturer = "Apple"
-    elif "qualcomm" in model.lower():
+
+    elif "Qualcomm" in model:
         manufacturer = "Qualcomm"
-    elif "arm" in model.lower():
-        manufacturer = "ARM"
+
+    elif "Intel" in model:
+        manufacturer = "Intel"
+
+    elif "AMD" in model:
+        manufacturer = "AMD"
+
+    else:
+        manufacturer = first_nonempty(vendor_id)
 
     if not manufacturer:
-        match = re.search(
-            r"\b(Intel|AMD|Apple|Qualcomm|ARM)\b",
+        match = re.match(
+            r"^\s*(Intel|AMD|Apple|Qualcomm)\b",
             model,
             re.IGNORECASE,
         )
@@ -420,7 +394,11 @@ def get_cpu_information():
         if match:
             manufacturer = match.group(1)
 
-    def frequency_mhz(value):
+    def frequency(value):
+        """
+        lscpu reports CPU MHz in MHz.
+        Linux cpufreq sysfs files report kHz.
+        """
         try:
             number = float(value)
 
@@ -432,60 +410,63 @@ def get_cpu_information():
         except (ValueError, TypeError):
             return ""
 
-    def read_cpu_frequency(filename):
-        value = read_file(filename)
-
-        try:
-            # Linux cpufreq sysfs files report kHz.
-            mhz = float(value) / 1000
-
-            if mhz > 0:
-                return f"{mhz / 1000:.2f} GHz"
-
-        except (ValueError, TypeError):
-            pass
-
-        return ""
-
     current_mhz = fields.get("cpu mhz", "")
     max_mhz = fields.get("cpu max mhz", "")
     min_mhz = fields.get("cpu min mhz", "")
 
-    current_speed = frequency_mhz(current_mhz)
-    maximum_speed = frequency_mhz(max_mhz)
-    minimum_speed = frequency_mhz(min_mhz)
-
-    if not current_speed:
-        current_speed = read_cpu_frequency(
+    # Try sysfs when lscpu does not provide a current frequency.
+    if not current_mhz:
+        current_khz = read_file(
             "/sys/devices/system/cpu/cpu0/cpufreq/"
             "scaling_cur_freq"
         )
 
-    if not maximum_speed:
-        maximum_speed = read_cpu_frequency(
-            "/sys/devices/system/cpu/cpu0/cpufreq/"
-            "scaling_max_freq"
-        )
+        try:
+            current_mhz = str(
+                float(current_khz) / 1000
+            )
 
-    if not minimum_speed:
-        minimum_speed = read_cpu_frequency(
-            "/sys/devices/system/cpu/cpu0/cpufreq/"
-            "scaling_min_freq"
-        )
+        except (ValueError, TypeError):
+            current_mhz = ""
 
-    # Some CPUs expose their nominal maximum frequency through
-    # cpuinfo_max_freq even when scaling_max_freq is unavailable.
-    if not maximum_speed:
-        maximum_speed = read_cpu_frequency(
+    # Try the CPU frequency policy files for maximum/current values.
+    if not max_mhz:
+        max_khz = read_file(
             "/sys/devices/system/cpu/cpu0/cpufreq/"
             "cpuinfo_max_freq"
         )
 
-    reported_speed = first_nonempty(
-        maximum_speed,
-        current_speed,
-        minimum_speed,
-    )
+        try:
+            max_mhz = str(float(max_khz) / 1000)
+
+        except (ValueError, TypeError):
+            max_mhz = ""
+
+    if not min_mhz:
+        min_khz = read_file(
+            "/sys/devices/system/cpu/cpu0/cpufreq/"
+            "cpuinfo_min_freq"
+        )
+
+        try:
+            min_mhz = str(float(min_khz) / 1000)
+
+        except (ValueError, TypeError):
+            min_mhz = ""
+
+    # Some CPUs expose their frequency through cpupower or
+    # /proc/cpuinfo even when lscpu lacks the information.
+    if not current_mhz:
+        proc_cpuinfo = read_file("/proc/cpuinfo")
+
+        match = re.search(
+            r"^\s*cpu MHz\s*:\s*([\d.]+)",
+            proc_cpuinfo,
+            re.MULTILINE | re.IGNORECASE,
+        )
+
+        if match:
+            current_mhz = match.group(1)
 
     return {
         "name": "CPU",
@@ -498,15 +479,27 @@ def get_cpu_information():
             platform.machine(),
         ),
         "cores": fields.get("core(s) per socket", ""),
-        "threads_per_core": fields.get("thread(s) per core", ""),
-        "logical_processors": fields.get("cpu(s)", ""),
-        "speed": reported_speed,
-        "current_speed": current_speed,
-        "minimum_speed": minimum_speed,
-        "maximum_speed": maximum_speed,
+        "threads_per_core": fields.get(
+            "thread(s) per core",
+            "",
+        ),
+        "logical_processors": fields.get(
+            "cpu(s)",
+            "",
+        ),
+        "speed": (
+            frequency(max_mhz)
+            or frequency(current_mhz)
+        ),
+        "current_speed": frequency(current_mhz),
+        "minimum_speed": frequency(min_mhz),
+        "maximum_speed": frequency(max_mhz),
         "identifier": vendor_id,
         "socket_count": fields.get("socket(s)", ""),
-        "virtualization": fields.get("virtualization", ""),
+        "virtualization": fields.get(
+            "virtualization",
+            "",
+        ),
     }
 
 
@@ -515,7 +508,7 @@ def get_cpu_information():
 # ============================================================
 
 def get_ram_information():
-    output = get_dmi_section("memory")
+    output = get_dmidecode_section("memory")
 
     modules = []
     slots_total = 0
@@ -527,32 +520,45 @@ def get_ram_information():
 
         size_mb = item.get("size_mb", 0)
 
-        if not isinstance(size_mb, (int, float)) or size_mb <= 0:
+        if not isinstance(size_mb, (int, float)):
             return
 
-        part_number = first_nonempty(
-            item.get("part_number"),
-        )
+        if size_mb <= 0:
+            return
 
         manufacturer = clean_value(
             item.get("manufacturer")
         )
 
+        # Use the actual memory part number when supplied by
+        # the firmware. Never substitute the computer SKU here.
+        memory_part_number = clean_value(
+            item.get("part_number")
+        )
+
+        memory_model = first_nonempty(
+            item.get("model"),
+            memory_part_number,
+        )
+
         modules.append({
             "name": "RAM",
             "manufacturer": manufacturer,
-            "model": first_nonempty(
-                item.get("model"),
-                part_number,
-            ),
+            "model": memory_model,
             "serial": clean_value(item.get("serial")),
-            "part_number": part_number,
-            "asset_tag": clean_value(item.get("asset_tag")),
+            "part_number": memory_part_number,
+            "asset_tag": clean_value(
+                item.get("asset_tag")
+            ),
             "size_mb": size_mb,
             "capacity_gb": round(size_mb / 1024, 2),
             "locator": clean_value(item.get("locator")),
-            "bank_locator": clean_value(item.get("bank_locator")),
-            "form_factor": clean_value(item.get("form_factor")),
+            "bank_locator": clean_value(
+                item.get("bank_locator")
+            ),
+            "form_factor": clean_value(
+                item.get("form_factor")
+            ),
             "type": clean_value(item.get("type")),
             "speed": clean_value(item.get("speed")),
             "configured_speed": clean_value(
@@ -599,10 +605,7 @@ def get_ram_information():
             elif value.lower() == "no module installed":
                 device["size_mb"] = 0
 
-        elif key == "locator":
-            device["locator"] = value
-
-        elif key == "device locator":
+        elif key in ("locator", "device locator"):
             device["locator"] = value
 
         elif key == "bank locator":
@@ -643,27 +646,19 @@ def get_ram_information():
 
     finish_device(device)
 
-    # Fall back to /proc/meminfo for total memory when DMI is
-    # unavailable. This does not invent physical module details.
-    total_mb = sum(module["size_mb"] for module in modules)
-
-    if total_mb <= 0:
-        meminfo = read_file("/proc/meminfo")
-
-        match = re.search(
-            r"^MemTotal:\s*(\d+)\s+kB",
-            meminfo,
-            re.MULTILINE,
-        )
-
-        if match:
-            total_mb = int(match.group(1)) / 1024
+    total_mb = sum(
+        module["size_mb"]
+        for module in modules
+    )
 
     return {
         "total_gb": round(total_mb / 1024, 2),
         "modules_installed": len(modules),
         "slots_used": len(modules),
-        "slots_available": max(0, slots_total - len(modules)),
+        "slots_available": max(
+            0,
+            slots_total - len(modules),
+        ),
         "slots_total": slots_total,
         "modules": modules,
     }
@@ -692,27 +687,6 @@ def get_udev_properties(device_path):
     return properties
 
 
-def get_nvme_information(device_path):
-    if not shutil.which("nvme"):
-        return {}
-
-    output = run_command([
-        "nvme",
-        "id-ctrl",
-        device_path,
-        "-o",
-        "json",
-    ])
-
-    if not output:
-        return {}
-
-    try:
-        return json.loads(output)
-    except json.JSONDecodeError:
-        return {}
-
-
 def get_disk_information():
     output = run_command([
         "lsblk",
@@ -727,7 +701,11 @@ def get_disk_information():
         return []
 
     try:
-        devices = json.loads(output).get("blockdevices", [])
+        devices = json.loads(output).get(
+            "blockdevices",
+            [],
+        )
+
     except (json.JSONDecodeError, AttributeError):
         return []
 
@@ -778,6 +756,7 @@ def get_disk_information():
 
         try:
             size_bytes = int(item.get("size") or 0)
+
         except (TypeError, ValueError):
             size_bytes = 0
 
@@ -802,17 +781,18 @@ def get_disk_information():
         if not transport:
             if name.startswith("nvme"):
                 transport = "NVMe"
+
             elif name.startswith("sd"):
                 transport = "SATA/SCSI"
+
             elif name.startswith("mmcblk"):
                 transport = "MMC"
 
-        if transport.upper() == "NVME":
-            transport = "NVMe"
-
-        # lsblk does not report actual storage transfer speed.
-        # Report interface type rather than inventing a speed.
-        speed = ""
+        disk_part_number = first_nonempty(
+            properties.get("ID_PART_NUMBER"),
+            properties.get("ID_MODEL"),
+            item.get("model"),
+        )
 
         disks.append({
             "name": "Storage",
@@ -821,7 +801,7 @@ def get_disk_information():
             "model": clean_value(model),
             "serial": clean_value(serial),
             "part_number": clean_value(
-                properties.get("ID_PART_NUMBER")
+                disk_part_number
             ),
             "capacity_bytes": size_bytes,
             "capacity_gb": round(
@@ -834,7 +814,6 @@ def get_disk_information():
             ),
             "type": transport,
             "interface": transport,
-            "speed": speed,
             "revision": clean_value(item.get("rev")),
             "rotational": item.get("rota"),
             "wwn": clean_value(wwn),
@@ -901,7 +880,6 @@ def collect_audit():
         "serial": system["serial"],
         "part_number": system["part_number"],
         "system_sku": system["system_sku"],
-        "system_version": system["system_version"],
         "system_uuid": system["system_uuid"],
         "hwid": system["system_uuid"],
         "product_type": system["product_type"],
@@ -949,21 +927,15 @@ class AuditHandler(BaseHTTPRequestHandler):
 
         self.send_header("Cache-Control", "no-store")
 
-        origin = self.headers.get("Origin", "")
-
-        if origin == ALLOWED_ORIGIN:
-            self.send_header(
-                "Access-Control-Allow-Origin",
-                ALLOWED_ORIGIN,
-            )
+        self.send_header(
+            "Access-Control-Allow-Origin",
+            ALLOWED_ORIGIN,
+        )
 
         self.send_header("Vary", "Origin")
         self.end_headers()
 
-        try:
-            self.wfile.write(body)
-        except (BrokenPipeError, ConnectionResetError):
-            pass
+        self.wfile.write(body)
 
     def do_OPTIONS(self):
         origin = self.headers.get("Origin", "")
@@ -1020,7 +992,11 @@ class AuditHandler(BaseHTTPRequestHandler):
                 self.send_json(200, collect_audit())
 
             except Exception as error:
-                print(f"[AUDIT ERROR] {error}")
+                # Log the actual exception locally for debugging.
+                print(
+                    "[AUDIT ERROR]",
+                    repr(error),
+                )
 
                 self.send_json(
                     500,
@@ -1052,12 +1028,6 @@ def main():
             "Storage detection may be unavailable."
         )
 
-    if shutil.which("lscpu") is None:
-        print(
-            "Warning: lscpu is not installed. "
-            "CPU information may be incomplete."
-        )
-
     print("==========================================")
     print("         COMPUTER AUDIT AGENT")
     print("==========================================")
@@ -1067,17 +1037,35 @@ def main():
     print(f"Audit endpoint: http://{HOST}:{PORT}/audit")
     print(f"Website: {AMPLIFY_URL}")
 
+    # Print important fields to help diagnose missing firmware data.
+    system = get_system_information()
+
+    print()
+    print("Computer identification:")
+    print("  Manufacturer:", system["manufacturer"] or "Unavailable")
+    print("  Model:", system["model"] or "Unavailable")
+    print("  Serial:", system["serial"] or "Unavailable")
+    print("  System SKU:", system["system_sku"] or "Unavailable")
+    print("  Part Number:", system["part_number"] or "Unavailable")
+
+    print()
+    print("Motherboard:")
+    for key, value in system["motherboard"].items():
+        if key != "name":
+            print(f"  {key}: {value or 'Unavailable'}")
+
+    print()
+
     try:
         server = ThreadingHTTPServer(
             (HOST, PORT),
             AuditHandler,
         )
+
     except OSError as error:
         raise SystemExit(
             f"Cannot start server on {HOST}:{PORT}: {error}"
         )
-
-    server.daemon_threads = True
 
     threading.Timer(
         1.0,
