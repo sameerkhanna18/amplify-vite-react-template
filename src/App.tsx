@@ -933,7 +933,7 @@ function HardwareComponents({
     ]);
   }
 
-  // Motherboard row
+    // Motherboard row
   const motherboard = audit.motherboard ?? {};
 
   const hasMotherboardInformation = Object.values(
@@ -967,16 +967,47 @@ function HardwareComponents({
           'serial_number',
         ]),
       ),
+      // Type: System architecture
+      audit.architecture || 'Not available',
+
+      // Speed: CPU speed
       textValue(
-        firstValue(motherboard, [
-          'type',
-          'version',
+        firstValue(audit.cpu_info, [
+          'speed',
+          'current_speed',
+          'current_speed_mhz',
+          'max_speed',
+          'max_speed_mhz',
+          'frequency',
+          'frequency_mhz',
+          'clock_speed',
+          'clock_speed_mhz',
         ]),
-      ),
-      '',
-      '',
+      ) || 'Not available',
+
+      // Size: CPU core count
+      textValue(
+        firstValue(audit.cpu_info, [
+          'cores',
+          'core_count',
+          'cpu_cores',
+          'physical_cores',
+          'number_of_cores',
+        ]),
+      )
+        ? `${textValue(
+            firstValue(audit.cpu_info, [
+              'cores',
+              'core_count',
+              'cpu_cores',
+              'physical_cores',
+              'number_of_cores',
+            ]),
+          )} cores`
+        : 'Not available',
     ]);
   }
+
 
   // Storage rows
   for (const drive of audit.storage ?? []) {

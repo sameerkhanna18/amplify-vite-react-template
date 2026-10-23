@@ -11,7 +11,6 @@ import webbrowser
 
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from urllib.parse import urlparse
 
 
@@ -34,8 +33,6 @@ ALLOWED_ORIGIN = AMPLIFY_URL
 # ============================================================
 
 def run_command(command, timeout=15):
-    """Run a command without raising an exception on failure."""
-
     try:
         result = subprocess.run(
             command,
@@ -56,17 +53,16 @@ def run_command(command, timeout=15):
 
 def run_sudo_command(command):
     """
-    Run a command using non-interactive sudo.
+    Run commands using non-interactive sudo.
 
-    This requires the user to have appropriate sudo permissions.
+    The agent does not prompt for a password.
+    Commands requiring unavailable sudo permissions
+    may return empty results.
     """
-
     return run_command(["sudo", "-n"] + command)
 
 
 def clean_value(value):
-    """Normalize values and remove common firmware placeholders."""
-
     if value is None:
         return ""
 
@@ -93,8 +89,6 @@ def clean_value(value):
 
 
 def first_nonempty(*values):
-    """Return the first usable value."""
-
     for value in values:
         value = clean_value(value)
 
@@ -105,28 +99,21 @@ def first_nonempty(*values):
 
 
 def read_file(path):
-    """Read a system file safely."""
-
     try:
-        return clean_value(
-            Path(path).read_text(encoding="utf-8")
-        )
+        with open(path, encoding="utf-8") as file:
+            return clean_value(file.read())
 
     except (OSError, UnicodeError):
         return ""
 
 
 def get_dmi_value(field):
-    """Retrieve one DMI value."""
-
     return clean_value(
         run_sudo_command(["dmidecode", "-s", field])
     )
 
 
 def get_dmidecode_section(section_type):
-    """Retrieve a dmidecode hardware section."""
-
     return run_sudo_command(
         ["dmidecode", "--type", str(section_type)]
     )
@@ -137,8 +124,6 @@ def get_dmidecode_section(section_type):
 # ============================================================
 
 def get_os_information():
-    """Collect operating system information."""
-
     result = {
         "name": platform.platform(),
         "kernel": platform.release(),
@@ -146,10 +131,7 @@ def get_os_information():
     }
 
     try:
-        with open(
-            "/etc/os-release",
-            encoding="utf-8",
-        ) as file:
+        with open("/etc/os-release", encoding="utf-8") as file:
             for line in file:
                 if line.startswith("PRETTY_NAME="):
                     result["name"] = (
@@ -170,14 +152,10 @@ def get_os_information():
 # ============================================================
 
 def detect_product_type(chassis, model):
-    """Determine whether the computer is a laptop or desktop."""
-
     chassis_value = clean_value(chassis).lower()
     model_value = clean_value(model).lower()
 
     chassis_types = {
-        "1": "Other",
-        "2": "Unknown",
         "3": "Desktop",
         "4": "Desktop",
         "5": "Mini Tower",
@@ -193,18 +171,7 @@ def detect_product_type(chassis, model):
         "15": "Space-saving",
         "16": "Lunch Box",
         "17": "Main Server Chassis",
-        "18": "Expansion Chassis",
-        "19": "Sub Chassis",
-        "20": "Bus Expansion Chassis",
-        "21": "Peripheral Chassis",
-        "22": "RAID Chassis",
-        "23": "Rack Mount Chassis",
-        "24": "Sealed-case PC",
-        "25": "Multi-system Chassis",
-        "26": "Compact PCI",
-        "27": "Advanced TCA",
-        "28": "Blade",
-        "29": "Blade Enclosure",
+        "23": "Rack Mount Server",
         "30": "Tablet",
         "31": "Convertible",
         "32": "Detachable",
@@ -217,70 +184,56 @@ def detect_product_type(chassis, model):
     if chassis_value.isdigit():
         result = chassis_types.get(chassis_value, "")
 
-        if result and result != "Unknown":
+        if result:
             return result
 
-    if any(
-        word in chassis_value
-        for word in (
-            "laptop",
-            "notebook",
-            "portable",
-            "sub notebook",
-            "tablet",
-            "convertible",
-            "detachable",
-        )
-    ):
+    if any(word in chassis_value for word in (
+        "laptop",
+        "notebook",
+        "portable",
+        "sub notebook",
+        "tablet",
+        "convertible",
+        "detachable",
+    )):
         return "Laptop"
 
-    if any(
-        word in chassis_value
-        for word in (
-            "desktop",
-            "tower",
-            "pizza box",
-            "space-saving",
-            "all-in-one",
-        )
-    ):
+    if any(word in chassis_value for word in (
+        "desktop",
+        "tower",
+        "pizza box",
+        "space-saving",
+        "all-in-one",
+    )):
         return "Desktop"
 
-    if any(
-        word in model_value
-        for word in (
-            "laptop",
-            "notebook",
-            "thinkpad",
-            "latitude",
-            "vostro",
-            "inspiron",
-            "elitebook",
-            "probook",
-            "macbook",
-        )
-    ):
+    if any(word in model_value for word in (
+        "laptop",
+        "notebook",
+        "thinkpad",
+        "latitude",
+        "vostro",
+        "inspiron",
+        "elitebook",
+        "probook",
+        "macbook",
+    )):
         return "Laptop"
 
-    if any(
-        word in model_value
-        for word in (
-            "desktop",
-            "optiplex",
-            "thinkcentre",
-            "prodesk",
-            "elitedesk",
-            "tower",
-        )
-    ):
+    if any(word in model_value for word in (
+        "desktop",
+        "optiplex",
+        "thinkcentre",
+        "prodesk",
+        "elitedesk",
+        "tower",
+    )):
         return "Desktop"
 
     return "Unknown"
 
 
 def get_system_information():
-    """Collect computer identification information."""
-
     manufacturer = first_nonempty(
         get_dmi_value("system-manufacturer"),
         get_dmi_value("baseboard-manufacturer"),
@@ -288,9 +241,7 @@ def get_system_information():
 
     model = get_dmi_value("system-product-name")
     chassis = get_dmi_value("chassis-type")
-
     system_sku = get_dmi_value("system-sku-number")
-
     serial = get_dmi_value("system-serial-number")
     system_uuid = get_dmi_value("system-uuid")
 
@@ -320,8 +271,6 @@ def get_system_information():
 # ============================================================
 
 def get_cpu_information():
-    """Collect CPU information using lscpu and system files."""
-
     output = run_command(["lscpu"])
     fields = {}
 
@@ -339,28 +288,16 @@ def get_cpu_information():
         platform.machine(),
     )
 
-    manufacturer = ""
-
-    if "GenuineIntel" in vendor_id:
+    if "GenuineIntel" in vendor_id or "Intel" in model:
         manufacturer = "Intel"
-
-    elif "AuthenticAMD" in vendor_id:
+    elif "AuthenticAMD" in vendor_id or "AMD" in model:
         manufacturer = "AMD"
-
     elif "Apple" in model:
         manufacturer = "Apple"
-
     elif "Qualcomm" in model:
         manufacturer = "Qualcomm"
-
-    elif "Intel" in model:
-        manufacturer = "Intel"
-
-    elif "AMD" in model:
-        manufacturer = "AMD"
-
     else:
-        manufacturer = first_nonempty(vendor_id)
+        manufacturer = vendor_id
 
     def frequency(value):
         try:
@@ -385,9 +322,7 @@ def get_cpu_information():
         )
 
         try:
-            current_mhz = str(
-                float(current_khz) / 1000
-            )
+            current_mhz = str(float(current_khz) / 1000)
         except (ValueError, TypeError):
             current_mhz = ""
 
@@ -398,9 +333,7 @@ def get_cpu_information():
         )
 
         try:
-            max_mhz = str(
-                float(max_khz) / 1000
-            )
+            max_mhz = str(float(max_khz) / 1000)
         except (ValueError, TypeError):
             max_mhz = ""
 
@@ -411,9 +344,7 @@ def get_cpu_information():
         )
 
         try:
-            min_mhz = str(
-                float(min_khz) / 1000
-            )
+            min_mhz = str(float(min_khz) / 1000)
         except (ValueError, TypeError):
             min_mhz = ""
 
@@ -439,34 +370,19 @@ def get_cpu_information():
             "architecture",
             platform.machine(),
         ),
-        "cores": fields.get(
-            "core(s) per socket",
-            "",
-        ),
+        "cores": fields.get("core(s) per socket", ""),
         "threads_per_core": fields.get(
             "thread(s) per core",
             "",
         ),
-        "logical_processors": fields.get(
-            "cpu(s)",
-            "",
-        ),
-        "speed": (
-            frequency(max_mhz)
-            or frequency(current_mhz)
-        ),
+        "logical_processors": fields.get("cpu(s)", ""),
+        "speed": frequency(max_mhz) or frequency(current_mhz),
         "current_speed": frequency(current_mhz),
         "minimum_speed": frequency(min_mhz),
         "maximum_speed": frequency(max_mhz),
         "identifier": vendor_id,
-        "socket_count": fields.get(
-            "socket(s)",
-            "",
-        ),
-        "virtualization": fields.get(
-            "virtualization",
-            "",
-        ),
+        "socket_count": fields.get("socket(s)", ""),
+        "virtualization": fields.get("virtualization", ""),
     }
 
 
@@ -475,13 +391,6 @@ def get_cpu_information():
 # ============================================================
 
 def get_ram_information():
-    """
-    Collect physical RAM module information using dmidecode.
-
-    Installed modules with a valid capacity are included.
-    Empty slots are excluded from the installed module list.
-    """
-
     output = get_dmidecode_section("memory")
 
     modules = []
@@ -494,10 +403,7 @@ def get_ram_information():
 
         size_mb = item.get("size_mb", 0)
 
-        if (
-            not isinstance(size_mb, (int, float))
-            or size_mb <= 0
-        ):
+        if not isinstance(size_mb, (int, float)) or size_mb <= 0:
             return
 
         manufacturer = first_nonempty(
@@ -527,38 +433,19 @@ def get_ram_information():
             "model": model,
             "serial": serial,
             "part_number": part_number,
-            "asset_tag": clean_value(
-                item.get("asset_tag")
-            ),
+            "asset_tag": clean_value(item.get("asset_tag")),
             "size_mb": size_mb,
-            "capacity_gb": round(
-                size_mb / 1024,
-                2,
-            ),
-            "locator": clean_value(
-                item.get("locator")
-            ),
-            "bank_locator": clean_value(
-                item.get("bank_locator")
-            ),
-            "form_factor": clean_value(
-                item.get("form_factor")
-            ),
-            "type": clean_value(
-                item.get("type")
-            ),
-            "speed": clean_value(
-                item.get("speed")
-            ),
+            "capacity_gb": round(size_mb / 1024, 2),
+            "locator": clean_value(item.get("locator")),
+            "bank_locator": clean_value(item.get("bank_locator")),
+            "form_factor": clean_value(item.get("form_factor")),
+            "type": clean_value(item.get("type")),
+            "speed": clean_value(item.get("speed")),
             "configured_speed": clean_value(
                 item.get("configured_speed")
             ),
-            "rank": clean_value(
-                item.get("rank")
-            ),
-            "voltage": clean_value(
-                item.get("voltage")
-            ),
+            "rank": clean_value(item.get("rank")),
+            "voltage": clean_value(item.get("voltage")),
         })
 
     for line in output.splitlines():
@@ -566,17 +453,14 @@ def get_ram_information():
 
         if stripped.lower() == "memory device":
             finish_device(device)
-
             device = {}
             slots_total += 1
-
             continue
 
         if device is None or ":" not in stripped:
             continue
 
         key, value = stripped.split(":", 1)
-
         key = key.strip().lower()
         value = value.strip()
 
@@ -597,9 +481,7 @@ def get_ram_information():
                     "TB": 1024 * 1024,
                 }
 
-                device["size_mb"] = (
-                    number * multipliers[unit]
-                )
+                device["size_mb"] = number * multipliers[unit]
 
             elif value.lower() == "no module installed":
                 device["size_mb"] = 0
@@ -610,10 +492,7 @@ def get_ram_information():
         elif key == "bank locator":
             device["bank_locator"] = value
 
-        elif key in (
-            "manufacturer",
-            "module manufacturer",
-        ):
+        elif key in ("manufacturer", "module manufacturer"):
             device["manufacturer"] = value
 
         elif key in ("serial number", "serial"):
@@ -643,30 +522,129 @@ def get_ram_information():
         elif key == "rank":
             device["rank"] = value
 
-        elif key in (
-            "minimum voltage",
-            "configured voltage",
-        ):
+        elif key in ("minimum voltage", "configured voltage"):
             device["voltage"] = value
 
     finish_device(device)
 
-    total_mb = sum(
-        module["size_mb"]
-        for module in modules
-    )
+    total_mb = sum(module["size_mb"] for module in modules)
 
     return {
         "total_gb": round(total_mb / 1024, 2),
         "modules_installed": len(modules),
         "slots_used": len(modules),
-        "slots_available": max(
-            0,
-            slots_total - len(modules),
-        ),
+        "slots_available": max(0, slots_total - len(modules)),
         "slots_total": slots_total,
         "modules": modules,
     }
+
+
+# ============================================================
+# Motherboard
+# ============================================================
+
+def get_motherboard_information():
+    manufacturer = get_dmi_value("baseboard-manufacturer")
+    model = get_dmi_value("baseboard-product-name")
+    serial = get_dmi_value("baseboard-serial-number")
+    part_number = get_dmi_value("baseboard-part-number")
+    version = get_dmi_value("baseboard-version")
+
+    return {
+        "name": "Motherboard",
+        "manufacturer": manufacturer,
+        "model": model,
+        "serial": serial,
+        "part_number": part_number,
+        "version": version,
+        "type": "Motherboard",
+    }
+
+
+# ============================================================
+# Storage
+# ============================================================
+
+def get_storage_information():
+    """
+    Collect physical block-device information using lsblk.
+
+    Partitions and loop devices are excluded.
+    Device serial numbers and models depend on OS access.
+    """
+
+    output = run_command([
+        "lsblk",
+        "--json",
+        "--bytes",
+        "-d",
+        "-o",
+        "NAME,PATH,TYPE,SIZE,MODEL,SERIAL,WWN,ROTA,TRAN,VENDOR",
+    ])
+
+    if not output:
+        return []
+
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError:
+        return []
+
+    devices = []
+
+    for device in data.get("blockdevices", []):
+        if clean_value(device.get("type")).lower() != "disk":
+            continue
+
+        name = clean_value(device.get("name"))
+        path = clean_value(device.get("path"))
+
+        try:
+            size_bytes = int(device.get("size") or 0)
+        except (TypeError, ValueError):
+            size_bytes = 0
+
+        size_gb = round(size_bytes / (1000 ** 3), 2)
+        size_tb = round(size_bytes / (1000 ** 4), 3)
+
+        model = clean_value(device.get("model"))
+        vendor = clean_value(device.get("vendor"))
+        serial = clean_value(device.get("serial"))
+        rotation = device.get("rota")
+        transport = clean_value(device.get("tran"))
+
+        if rotation is True or str(rotation) == "1":
+            drive_type = "HDD"
+        elif rotation is False or str(rotation) == "0":
+            drive_type = "SSD"
+        else:
+            drive_type = "Unknown"
+
+        if transport.lower() == "nvme":
+            drive_type = "NVMe SSD"
+
+        manufacturer = vendor
+
+        if not manufacturer and model:
+            manufacturer = model.split()[0]
+
+        devices.append({
+            "name": "Storage",
+            "device": name,
+            "path": path or (f"/dev/{name}" if name else ""),
+            "manufacturer": manufacturer,
+            "model": model,
+            "serial": serial,
+            "part_number": "",
+            "type": drive_type,
+            "transport": transport,
+            "size_bytes": size_bytes,
+            "size_gb": size_gb,
+            "size_tb": size_tb,
+            "wwn": clean_value(device.get("wwn")),
+        })
+
+    return devices
 
 
 # ============================================================
@@ -674,8 +652,6 @@ def get_ram_information():
 # ============================================================
 
 def get_imei():
-    """Retrieve a modem IMEI when ModemManager is available."""
-
     if not shutil.which("mmcli"):
         return ""
 
@@ -711,18 +687,16 @@ def get_imei():
 # ============================================================
 
 def collect_audit():
-    """Collect all supported audit information."""
-
     system = get_system_information()
     cpu = get_cpu_information()
     ram = get_ram_information()
+    motherboard = get_motherboard_information()
+    storage = get_storage_information()
     os_info = get_os_information()
 
     collected_at = datetime.now().astimezone().isoformat()
 
     return {
-        "host": socket.gethostname(),
-
         "manufacturer": system["manufacturer"],
         "model": system["model"],
         "serial": system["serial"],
@@ -741,9 +715,17 @@ def collect_audit():
         "cpu_info": cpu,
 
         "ram": ram,
+        "motherboard": motherboard,
+        "storage": storage,
 
         "imei": get_imei(),
-        "collected_at": collected_at,
+
+        # Hostname is intentionally nested here.
+        "additional_info": {
+            "hostname": socket.gethostname(),
+            "collected_at": collected_at,
+            "agent_version": "1.1.0",
+        },
     }
 
 
@@ -752,7 +734,6 @@ def collect_audit():
 # ============================================================
 
 class AuditHandler(BaseHTTPRequestHandler):
-    """HTTP handler for the local audit agent."""
 
     def send_json(self, status, data):
         body = json.dumps(
@@ -782,17 +763,10 @@ class AuditHandler(BaseHTTPRequestHandler):
             ALLOWED_ORIGIN,
         )
 
-        self.send_header(
-            "Vary",
-            "Origin",
-        )
-
+        self.send_header("Vary", "Origin")
         self.end_headers()
 
-        try:
-            self.wfile.write(body)
-        except (BrokenPipeError, ConnectionResetError):
-            pass
+        self.wfile.write(body)
 
     def do_OPTIONS(self):
         origin = self.headers.get("Origin", "")
@@ -821,11 +795,7 @@ class AuditHandler(BaseHTTPRequestHandler):
             "Content-Type",
         )
 
-        self.send_header(
-            "Vary",
-            "Origin",
-        )
-
+        self.send_header("Vary", "Origin")
         self.end_headers()
 
     def do_GET(self):
@@ -858,17 +828,13 @@ class AuditHandler(BaseHTTPRequestHandler):
                     collect_audit(),
                 )
 
-            except Exception:
-                print(
-                    "[AUDIT ERROR] Failed to collect audit data"
-                )
+            except Exception as error:
+                print("[AUDIT ERROR]", repr(error))
 
                 self.send_json(
                     500,
                     {
-                        "error": (
-                            "Failed to collect audit data"
-                        )
+                        "error": "Failed to collect audit data",
                     },
                 )
 
@@ -880,10 +846,7 @@ class AuditHandler(BaseHTTPRequestHandler):
         )
 
     def log_message(self, format_string, *args):
-        print(
-            "[HTTP]",
-            format_string % args,
-        )
+        print("[HTTP]", format_string % args)
 
 
 # ============================================================
@@ -891,22 +854,27 @@ class AuditHandler(BaseHTTPRequestHandler):
 # ============================================================
 
 def main():
-    """Start the local audit service."""
-
     if shutil.which("dmidecode") is None:
         print(
-            "WARNING: dmidecode is not installed. "
-            "RAM module details may be unavailable."
+            "Warning: dmidecode is not installed. "
+            "Hardware manufacturer, serial and RAM module "
+            "information may be incomplete."
         )
 
     if shutil.which("lscpu") is None:
         print(
-            "WARNING: lscpu is unavailable. "
+            "Warning: lscpu is unavailable. "
             "CPU information may be incomplete."
         )
 
+    if shutil.which("lsblk") is None:
+        print(
+            "Warning: lsblk is unavailable. "
+            "Storage information may be incomplete."
+        )
+
     print("=" * 50)
-    print("          COMPUTER AUDIT AGENT")
+    print("         COMPUTER AUDIT AGENT")
     print("=" * 50)
 
     print(f"Hostname: {socket.gethostname()}")
@@ -915,107 +883,64 @@ def main():
     print(f"Website: {AMPLIFY_URL}")
 
     system = get_system_information()
+    cpu = get_cpu_information()
     ram = get_ram_information()
+    motherboard = get_motherboard_information()
+    storage = get_storage_information()
 
-    print()
-    print("System Information:")
+    print("\nSystem Information:")
+    print("  Manufacturer:", system["manufacturer"] or "Unavailable")
+    print("  Model:", system["model"] or "Unavailable")
+    print("  Serial:", system["serial"] or "Unavailable")
+    print("  Product Type:", system["product_type"])
 
-    print(
-        "  Manufacturer:",
-        system["manufacturer"] or "Unavailable",
-    )
+    print("\nCPU Information:")
+    print("  Manufacturer:", cpu["manufacturer"] or "Unavailable")
+    print("  Model:", cpu["model"] or "Unavailable")
+    print("  Speed:", cpu["speed"] or "Unavailable")
+    print("  Cores:", cpu["cores"] or "Unavailable")
 
-    print(
-        "  Model:",
-        system["model"] or "Unavailable",
-    )
+    print("\nRAM Information:")
+    print("  Total RAM:", f'{ram["total_gb"]} GB')
+    print("  Modules Installed:", ram["modules_installed"])
+    print("  Slots Used:", ram["slots_used"])
+    print("  Slots Available:", ram["slots_available"])
 
-    print(
-        "  Serial:",
-        system["serial"] or "Unavailable",
-    )
+    for index, module in enumerate(ram["modules"], start=1):
+        print(f"\n  RAM Module {index}:")
+        print("    Manufacturer:", module["manufacturer"] or "Unavailable")
+        print("    Model:", module["model"] or "Unavailable")
+        print("    Serial:", module["serial"] or "Unavailable")
+        print("    Part Number:", module["part_number"] or "Unavailable")
+        print("    Capacity:", f'{module["capacity_gb"]} GB')
+        print("    Type:", module["type"] or "Unavailable")
+        print("    Speed:", module["speed"] or "Unavailable")
+        print("    Slot:", module["locator"] or "Unavailable")
 
-    print(
-        "  Part Number:",
-        system["part_number"] or "Unavailable",
-    )
+    print("\nMotherboard Information:")
+    print("  Manufacturer:", motherboard["manufacturer"] or "Unavailable")
+    print("  Model:", motherboard["model"] or "Unavailable")
+    print("  Serial:", motherboard["serial"] or "Unavailable")
+    print("  Part Number:", motherboard["part_number"] or "Unavailable")
 
-    print()
-    print("RAM Information:")
+    print("\nStorage Information:")
 
-    print(
-        "  Total RAM:",
-        f'{ram["total_gb"]} GB',
-    )
+    if not storage:
+        print("  No physical storage devices detected.")
 
-    print(
-        "  Modules Installed:",
-        ram["modules_installed"],
-    )
+    for index, drive in enumerate(storage, start=1):
+        print(f"  Drive {index}:")
+        print("    Device:", drive["path"] or "Unavailable")
+        print("    Manufacturer:", drive["manufacturer"] or "Unavailable")
+        print("    Model:", drive["model"] or "Unavailable")
+        print("    Serial:", drive["serial"] or "Unavailable")
+        print("    Type:", drive["type"])
+        print("    Size:", f'{drive["size_gb"]} GB')
 
-    print(
-        "  Slots Used:",
-        ram["slots_used"],
-    )
-
-    print(
-        "  Slots Available:",
-        ram["slots_available"],
-    )
-
-    for index, module in enumerate(
-        ram["modules"],
-        start=1,
-    ):
-        print()
-        print(f"  RAM Module {index}:")
-
-        print(
-            "    Manufacturer:",
-            module["manufacturer"] or "Unavailable",
-        )
-
-        print(
-            "    Model:",
-            module["model"] or "Unavailable",
-        )
-
-        print(
-            "    Serial:",
-            module["serial"] or "Unavailable",
-        )
-
-        print(
-            "    Part Number:",
-            module["part_number"] or "Unavailable",
-        )
-
-        print(
-            "    Capacity:",
-            f'{module["capacity_gb"]} GB',
-        )
-
-        print(
-            "    Type:",
-            module["type"] or "Unavailable",
-        )
-
-        print(
-            "    Speed:",
-            module["speed"] or "Unavailable",
-        )
-
-        print(
-            "    Configured Speed:",
-            module["configured_speed"] or "Unavailable",
-        )
-
-        print(
-            "    Slot:",
-            module["locator"] or "Unavailable",
-        )
-
-    print()
+    print("\nAdditional Information:")
+    print("  Hostname:", socket.gethostname())
+    print("  Collected At:", datetime.now().astimezone().isoformat())
+    print("  Agent Version: 1.1.0")
 
     try:
         server = ThreadingHTTPServer(
@@ -1028,14 +953,12 @@ def main():
             f"Cannot start server on {HOST}:{PORT}: {error}"
         )
 
-    server.daemon_threads = True
-
     threading.Timer(
         1.0,
         lambda: webbrowser.open(AMPLIFY_URL),
     ).start()
 
-    print("Audit agent is running.")
+    print("\nAudit agent is running.")
     print("Press Ctrl+C to stop.")
 
     try:
