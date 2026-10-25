@@ -37,6 +37,17 @@ type HardwareItem = {
   voltage?: string;
   version?: string;
   wwn?: string;
+
+  // Display / Monitor
+  resolution?: string;
+  width?: number;
+  height?: number;
+  diagonal_inches?: number;
+  display_size?: string | number;
+  size_inches?: number;
+  screen_size?: number | string;
+  connection_type?: string;
+  refresh_rate?: number | string;
 };
 
 type RamInfo = {
@@ -67,6 +78,7 @@ type AuditRecord = {
   ram: RamInfo;
   motherboard: HardwareItem;
   storage: HardwareItem[];
+  display: HardwareItem[];
   imei: string;
   collected_at: string;
   additional_info: Record<string, unknown>;
@@ -291,6 +303,67 @@ function getDriveSize(drive: HardwareItem): string {
   return '';
 }
 
+/* =========================================================
+   Display helpers
+========================================================= */
+
+function getDisplaySize(display: HardwareItem): string {
+  const value = firstValue(display, [
+    'display_size',
+    'diagonal_inches',
+    'size_inches',
+    'screen_size',
+  ]);
+
+  if (value === '') {
+    // Resolution is not a physical screen measurement.
+    // Use it only as a fallback when physical size is unavailable.
+    return textValue(
+      firstValue(display, [
+        'resolution',
+        'native_resolution',
+      ]),
+    );
+  }
+
+  const size = textValue(value);
+
+  if (/inches|inch|\bin\b|["″]/i.test(size)) {
+    return size;
+  }
+
+  if (
+    typeof value === 'number' ||
+    /^\d+(\.\d+)?$/.test(size)
+  ) {
+    return `${size}"`;
+  }
+
+  return size;
+}
+
+function getDisplayRefreshRate(
+  display: HardwareItem,
+): string {
+  const value = firstValue(display, [
+    'refresh_rate',
+    'refresh_rate_hz',
+    'refreshRate',
+  ]);
+
+  if (value === '') {
+    return '';
+  }
+
+  const rate = textValue(value);
+
+  return /hz$/i.test(rate) ? rate : `${rate} Hz`;
+}
+
+/* =========================================================
+   RAM helpers
+========================================================= */
+
 function getModuleCapacityGb(
   module: HardwareItem,
 ): number {
@@ -404,6 +477,16 @@ function normaliseAudit(data: unknown): AuditRecord {
     ]),
   );
 
+  const display = parseArray(
+    firstValue(raw, [
+      'display',
+      'Display',
+      'displays',
+      'monitors',
+      'monitor',
+    ]),
+  );
+
   const additionalInfo = parseObject(
     firstValue(raw, [
       'additional_info',
@@ -451,8 +534,6 @@ function normaliseAudit(data: unknown): AuditRecord {
       ]),
     ),
 
-    // Part Number already represents the SKU.
-    // Do not display a separate System SKU field.
     part_number: textValue(
       firstValue(raw, [
         'part_number',
@@ -526,6 +607,7 @@ function normaliseAudit(data: unknown): AuditRecord {
     ram,
     motherboard,
     storage,
+    display,
 
     imei: textValue(
       firstValue(raw, [
@@ -735,7 +817,6 @@ function InventoryTable({
 }: {
   rows: Array<Array<unknown>>;
 }) {
-  // These headers remain unchanged.
   const columns = [
     'Component',
     'Manufacturer',
@@ -856,7 +937,7 @@ function SystemInformation({
 }
 
 /* =========================================================
-   Hardware components: RAM, motherboard and storage
+   Hardware components: RAM, motherboard, storage, display
 ========================================================= */
 
 function HardwareComponents({
@@ -933,7 +1014,7 @@ function HardwareComponents({
     ]);
   }
 
-    // Motherboard row
+  // Motherboard row
   const motherboard = audit.motherboard ?? {};
 
   const hasMotherboardInformation = Object.values(
@@ -967,10 +1048,7 @@ function HardwareComponents({
           'serial_number',
         ]),
       ),
-      // Type: System architecture
       audit.architecture || 'Not available',
-
-      // Speed: CPU speed
       textValue(
         firstValue(audit.cpu_info, [
           'speed',
@@ -984,8 +1062,6 @@ function HardwareComponents({
           'clock_speed_mhz',
         ]),
       ) || 'Not available',
-
-      // Size: CPU core count
       textValue(
         firstValue(audit.cpu_info, [
           'cores',
@@ -1007,7 +1083,6 @@ function HardwareComponents({
         : 'Not available',
     ]);
   }
-
 
   // Storage rows
   for (const drive of audit.storage ?? []) {
@@ -1044,10 +1119,63 @@ function HardwareComponents({
     ]);
   }
 
+  // Display / Monitor rows
+  // Uses the existing seven columns; no additional headers.
+  for (const display of audit.display ?? []) {
+    rows.push([
+      'Display',
+
+      // Manufacturer
+      textValue(
+        firstValue(display, [
+          'manufacturer',
+          'vendor',
+          'brand',
+        ]),
+      ),
+
+      // Model / Part Number
+      textValue(
+        firstValue(display, [
+          'model',
+          'model_name',
+          'part_number',
+          'product',
+          'name',
+        ]),
+      ),
+
+      // Serial Number
+      textValue(
+        firstValue(display, [
+          'serial',
+          'serial_number',
+          'serialnumber',
+        ]),
+      ),
+
+      // Type: connection type
+      textValue(
+        firstValue(display, [
+          'connection_type',
+          'transport',
+          'interface',
+          'type',
+        ]),
+      ),
+
+      // Speed: refresh rate
+      getDisplayRefreshRate(display),
+
+      // Size: physical display size
+      getDisplaySize(display),
+    ]);
+  }
+
   return (
     <Section
       title="Hardware Components"
-      description="Installed RAM modules, motherboard, and physical storage device specifications."
+      description="Installed RAM modules, motherboard, physical storage devices, and display specifications."
     >
       <div className="hardware-summary">
         <div className="summary-item">
@@ -1087,10 +1215,10 @@ function HardwareComponents({
       <InventoryTable rows={rows} />
 
       <p className="helper-text">
-        Manufacturer, serial number, model, speed, and
-        capacity are displayed when available from the
-        operating system and firmware. Some systems do not
-        report every hardware field.
+        Manufacturer, serial number, model, speed, capacity,
+        and display specifications are shown when reported
+        by the operating system and hardware firmware.
+        Some devices do not expose every field.
       </p>
     </Section>
   );
@@ -1121,30 +1249,12 @@ function AdditionalInformation({
     >
       <DataTable
         rows={[
-          [
-            'Hostname',
-            hostname,
-          ],
-          [
-            'Operating System',
-            audit.os_version,
-          ],
-          [
-            'Kernel',
-            audit.kernel,
-          ],
-          [
-            'System Architecture',
-            audit.architecture,
-          ],
-          [
-            'IMEI',
-            audit.imei,
-          ],
-          [
-            'System UUID',
-            audit.system_uuid,
-          ],
+          ['Hostname', hostname],
+          ['Operating System', audit.os_version],
+          ['Kernel', audit.kernel],
+          ['System Architecture', audit.architecture],
+          ['IMEI', audit.imei],
+          ['System UUID', audit.system_uuid],
           [
             'Collected At',
             audit.collected_at
@@ -1322,10 +1432,7 @@ function AuditPage({
 
       const data: unknown = await response.json();
 
-      console.log(
-        'Raw audit response:',
-        data,
-      );
+      console.log('Raw audit response:', data);
 
       const record = normaliseAudit(data);
 
@@ -1340,15 +1447,9 @@ function AuditPage({
         record.ram.modules,
       );
 
-      console.log(
-        'Motherboard:',
-        record.motherboard,
-      );
-
-      console.log(
-        'Storage:',
-        record.storage,
-      );
+      console.log('Motherboard:', record.motherboard);
+      console.log('Storage:', record.storage);
+      console.log('Display:', record.display);
 
       setAudit(record);
       setMessageType('success');
@@ -1403,7 +1504,7 @@ function AuditPage({
       setMessageType('success');
 
       setMessage(
-        'The computer audit and RAM details were saved to AWS. Motherboard and storage are displayed locally but are not submitted by the current data model.',
+        'The computer audit and RAM details were saved to AWS. Motherboard, storage, and display are displayed locally but are not submitted by the current data model.',
       );
     } catch (error) {
       setMessageType('error');
