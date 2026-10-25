@@ -1171,6 +1171,39 @@ function HardwareComponents({
       getDisplaySize(display),
     ]);
   }
+  // Wi-Fi rows
+  for (const wifi of audit.wifi ?? []) {
+    rows.push([
+      'Wi-Fi',
+      textValue(
+        firstValue(wifi, [
+          'manufacturer',
+        ]),
+      ),
+      textValue(
+        firstValue(wifi, [
+          'model',
+          'name',
+        ]),
+      ),
+      textValue(
+        firstValue(wifi, [
+          'mac_address',
+        ]),
+      ),
+      textValue(
+        firstValue(wifi, [
+          'type',
+        ]),
+      ),
+      textValue(
+        firstValue(wifi, [
+          'transmit_bitrate',
+        ]),
+      ),
+      '',
+    ]);
+  }
 
   return (
     <Section
