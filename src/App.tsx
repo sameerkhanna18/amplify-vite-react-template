@@ -1,5 +1,5 @@
 import React from 'react';
-import SystemInformation from './systeminfo';
+import SystemInformation from './components/systeminfo';
 
 type AuditRecord = {
   product_type: string;
