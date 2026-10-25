@@ -38,14 +38,13 @@ type HardwareItem = {
   version?: string;
   wwn?: string;
 
-  // Display / Monitor
   resolution?: string;
   width?: number;
   height?: number;
   diagonal_inches?: number;
   display_size?: string | number;
   size_inches?: number;
-  screen_size?: number | string;
+  screen_size?: string | number;
   connection_type?: string;
   refresh_rate?: number | string;
 };
@@ -79,6 +78,7 @@ type AuditRecord = {
   motherboard: HardwareItem;
   storage: HardwareItem[];
   display: HardwareItem[];
+  wifi: HardwareItem[];
   imei: string;
   collected_at: string;
   additional_info: Record<string, unknown>;
@@ -125,11 +125,7 @@ function firstValue(
   for (const key of keys) {
     const value = source[key];
 
-    if (
-      value !== undefined &&
-      value !== null &&
-      value !== ''
-    ) {
+    if (value !== undefined && value !== null && value !== '') {
       return value;
     }
   }
@@ -138,11 +134,7 @@ function firstValue(
 }
 
 function parseObject(value: unknown): Record<string, unknown> {
-  if (
-    value &&
-    typeof value === 'object' &&
-    !Array.isArray(value)
-  ) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
     return value as Record<string, unknown>;
   }
 
@@ -211,9 +203,7 @@ function getCapacity(item: HardwareItem): string {
     typeof item.capacity_bytes === 'number' &&
     Number.isFinite(item.capacity_bytes)
   ) {
-    return `${(
-      item.capacity_bytes / 1_000_000_000
-    ).toFixed(2)} GB`;
+    return `${(item.capacity_bytes / 1_000_000_000).toFixed(2)} GB`;
   }
 
   if (
@@ -242,9 +232,7 @@ function getManufacturer(
     ]),
   );
 
-  if (manufacturer) {
-    return manufacturer;
-  }
+  if (manufacturer) return manufacturer;
 
   const model = textValue(
     firstValue(item, [
@@ -265,15 +253,15 @@ function getManufacturer(
 }
 
 function getSpeed(item: HardwareItem): string {
-  const value = firstValue(item, [
-    'configured_speed',
-    'configured_memory_speed',
-    'speed',
-    'speed_mhz',
-    'clock_speed',
-  ]);
-
-  return textValue(value);
+  return textValue(
+    firstValue(item, [
+      'configured_speed',
+      'configured_memory_speed',
+      'speed',
+      'speed_mhz',
+      'clock_speed',
+    ]),
+  );
 }
 
 function getDriveSize(drive: HardwareItem): string {
@@ -295,9 +283,7 @@ function getDriveSize(drive: HardwareItem): string {
     typeof drive.size_bytes === 'number' &&
     Number.isFinite(drive.size_bytes)
   ) {
-    return `${(
-      drive.size_bytes / 1_000_000_000
-    ).toFixed(2)} GB`;
+    return `${(drive.size_bytes / 1_000_000_000).toFixed(2)} GB`;
   }
 
   return '';
@@ -316,8 +302,6 @@ function getDisplaySize(display: HardwareItem): string {
   ]);
 
   if (value === '') {
-    // Resolution is not a physical screen measurement.
-    // Use it only as a fallback when physical size is unavailable.
     return textValue(
       firstValue(display, [
         'resolution',
@@ -342,18 +326,14 @@ function getDisplaySize(display: HardwareItem): string {
   return size;
 }
 
-function getDisplayRefreshRate(
-  display: HardwareItem,
-): string {
+function getDisplayRefreshRate(display: HardwareItem): string {
   const value = firstValue(display, [
     'refresh_rate',
     'refresh_rate_hz',
     'refreshRate',
   ]);
 
-  if (value === '') {
-    return '';
-  }
+  if (value === '') return '';
 
   const rate = textValue(value);
 
@@ -364,9 +344,7 @@ function getDisplayRefreshRate(
    RAM helpers
 ========================================================= */
 
-function getModuleCapacityGb(
-  module: HardwareItem,
-): number {
+function getModuleCapacityGb(module: HardwareItem): number {
   if (
     typeof module.capacity_gb === 'number' &&
     Number.isFinite(module.capacity_gb)
@@ -403,39 +381,21 @@ function getModuleCapacityGb(
 ========================================================= */
 
 function normaliseAudit(data: unknown): AuditRecord {
-  if (
-    !data ||
-    typeof data !== 'object' ||
-    Array.isArray(data)
-  ) {
-    throw new Error(
-      'The audit service returned invalid data.',
-    );
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('The audit service returned invalid data.');
   }
 
   const raw = data as Record<string, unknown>;
 
   const ram = parseObject(
-    firstValue(raw, [
-      'ram',
-      'Ram',
-      'RAM',
-      'memory',
-    ]),
+    firstValue(raw, ['ram', 'Ram', 'RAM', 'memory']),
   ) as RamInfo;
 
   ram.modules = parseArray(
-    firstValue(ram, [
-      'modules',
-      'Modules',
-      'memory_modules',
-    ]),
+    firstValue(ram, ['modules', 'Modules', 'memory_modules']),
   );
 
-  if (
-    ram.modules.length > 0 &&
-    ram.total_gb === undefined
-  ) {
+  if (ram.modules.length > 0 && ram.total_gb === undefined) {
     const total = ram.modules.reduce(
       (sum, module) => sum + getModuleCapacityGb(module),
       0,
@@ -453,28 +413,15 @@ function normaliseAudit(data: unknown): AuditRecord {
   }
 
   const cpuInfo = parseObject(
-    firstValue(raw, [
-      'cpu_info',
-      'CPUInfo',
-      'cpuInfo',
-    ]),
+    firstValue(raw, ['cpu_info', 'CPUInfo', 'cpuInfo']),
   ) as HardwareItem;
 
   const motherboard = parseObject(
-    firstValue(raw, [
-      'motherboard',
-      'Motherboard',
-      'baseboard',
-    ]),
+    firstValue(raw, ['motherboard', 'Motherboard', 'baseboard']),
   ) as HardwareItem;
 
   const storage = parseArray(
-    firstValue(raw, [
-      'storage',
-      'Storage',
-      'drives',
-      'disks',
-    ]),
+    firstValue(raw, ['storage', 'Storage', 'drives', 'disks']),
   );
 
   const display = parseArray(
@@ -487,6 +434,17 @@ function normaliseAudit(data: unknown): AuditRecord {
     ]),
   );
 
+  const wifi = parseArray(
+    firstValue(raw, [
+      'wifi',
+      'WiFi',
+      'wi_fi',
+      'wireless',
+      'wireless_adapters',
+      'network_adapters',
+    ]),
+  );
+
   const additionalInfo = parseObject(
     firstValue(raw, [
       'additional_info',
@@ -496,42 +454,21 @@ function normaliseAudit(data: unknown): AuditRecord {
   );
 
   const hostname = textValue(
-    firstValue(raw, [
-      'hostname',
-      'host',
-      'Hostname',
-    ]) ||
-      firstValue(additionalInfo, [
-        'hostname',
-        'host',
-        'Hostname',
-      ]),
+    firstValue(raw, ['hostname', 'host', 'Hostname']) ||
+      firstValue(additionalInfo, ['hostname', 'host', 'Hostname']),
   );
 
   return {
     host: hostname,
 
     manufacturer: textValue(
-      firstValue(raw, [
-        'manufacturer',
-        'Manufacturer',
-        'Make',
-      ]),
+      firstValue(raw, ['manufacturer', 'Manufacturer', 'Make']),
     ),
 
-    model: textValue(
-      firstValue(raw, [
-        'model',
-        'Model',
-      ]),
-    ),
+    model: textValue(firstValue(raw, ['model', 'Model'])),
 
     serial: textValue(
-      firstValue(raw, [
-        'serial',
-        'Serial',
-        'serial_number',
-      ]),
+      firstValue(raw, ['serial', 'Serial', 'serial_number']),
     ),
 
     part_number: textValue(
@@ -546,91 +483,51 @@ function normaliseAudit(data: unknown): AuditRecord {
     ),
 
     system_uuid: textValue(
-      firstValue(raw, [
-        'system_uuid',
-        'SystemUUID',
-      ]),
+      firstValue(raw, ['system_uuid', 'SystemUUID']),
     ),
 
     hwid: textValue(
-      firstValue(raw, [
-        'hwid',
-        'system_uuid',
-        'SystemUUID',
-      ]),
+      firstValue(raw, ['hwid', 'system_uuid', 'SystemUUID']),
     ),
 
     product_type: textValue(
-      firstValue(raw, [
-        'product_type',
-        'ProductType',
-      ]),
+      firstValue(raw, ['product_type', 'ProductType']),
     ),
 
     chassis_type: textValue(
-      firstValue(raw, [
-        'chassis_type',
-        'chassisType',
-        'chassis',
-      ]),
+      firstValue(raw, ['chassis_type', 'chassisType', 'chassis']),
     ),
 
     os_version: textValue(
-      firstValue(raw, [
-        'os_version',
-        'OsVersion',
-      ]),
+      firstValue(raw, ['os_version', 'OsVersion']),
     ),
 
-    kernel: textValue(
-      firstValue(raw, [
-        'kernel',
-        'Kernel',
-      ]),
-    ),
+    kernel: textValue(firstValue(raw, ['kernel', 'Kernel'])),
 
     architecture: textValue(
-      firstValue(raw, [
-        'architecture',
-        'Architecture',
-      ]),
+      firstValue(raw, ['architecture', 'Architecture']),
     ),
 
-    cpu: textValue(
-      firstValue(raw, [
-        'cpu',
-        'CPU',
-      ]),
-    ),
+    cpu: textValue(firstValue(raw, ['cpu', 'CPU'])),
 
     cpu_info: cpuInfo,
     ram,
     motherboard,
     storage,
     display,
+    wifi,
 
-    imei: textValue(
-      firstValue(raw, [
-        'imei',
-        'IMEI',
-      ]),
-    ),
+    imei: textValue(firstValue(raw, ['imei', 'IMEI'])),
 
     collected_at: textValue(
-      firstValue(raw, [
-        'collected_at',
-        'AuditTime',
-      ]) ||
-        firstValue(additionalInfo, [
-          'collected_at',
-          'collectedAt',
-        ]),
+      firstValue(raw, ['collected_at', 'AuditTime']) ||
+        firstValue(additionalInfo, ['collected_at', 'collectedAt']),
     ),
 
     additional_info: additionalInfo,
   };
 }
-
+tsx
 /* =========================================================
    Styles
 ========================================================= */
@@ -768,9 +665,7 @@ function Section({
       <h2 style={styles.heading}>{title}</h2>
 
       {description && (
-        <p style={styles.description}>
-          {description}
-        </p>
+        <p style={styles.description}>{description}</p>
       )}
 
       {children}
@@ -817,6 +712,7 @@ function InventoryTable({
 }: {
   rows: Array<Array<unknown>>;
 }) {
+  // Keep the existing seven columns.
   const columns = [
     'Component',
     'Manufacturer',
@@ -860,7 +756,7 @@ function InventoryTable({
         <tbody>
           {rows.map((row, rowIndex) => (
             <tr key={`${String(row[0])}-${rowIndex}`}>
-              {row.map((value, columnIndex) => (
+              {columns.map((_, columnIndex) => (
                 <td
                   key={columnIndex}
                   style={{
@@ -873,7 +769,7 @@ function InventoryTable({
                     minWidth: '90px',
                   }}
                 >
-                  {showValue(value)}
+                  {showValue(row[columnIndex] ?? '')}
                 </td>
               ))}
             </tr>
@@ -914,22 +810,10 @@ function SystemInformation({
               'name',
             ]),
           ],
-          [
-            'Manufacturer',
-            audit.manufacturer,
-          ],
-          [
-            'Model',
-            audit.model,
-          ],
-          [
-            'Serial Number',
-            audit.serial,
-          ],
-          [
-            'Part Number',
-            audit.part_number,
-          ],
+          ['Manufacturer', audit.manufacturer],
+          ['Model', audit.model],
+          ['Serial Number', audit.serial],
+          ['Part Number', audit.part_number],
         ]}
       />
     </Section>
@@ -937,7 +821,7 @@ function SystemInformation({
 }
 
 /* =========================================================
-   Hardware components: RAM, motherboard, storage, display
+   Hardware components
 ========================================================= */
 
 function HardwareComponents({
@@ -954,49 +838,42 @@ function HardwareComponents({
   // RAM rows
   if (ramModules.length > 0) {
     for (const module of ramModules) {
-      const manufacturer = getManufacturer(
-        module,
-        'ram',
-      );
-
-      const model = textValue(
-        firstValue(module, [
-          'model',
-          'part_number',
-          'part_number_raw',
-          'partnumber',
-          'product',
-          'product_name',
-        ]),
-      );
-
-      const serial = textValue(
-        firstValue(module, [
-          'serial',
-          'serial_number',
-          'serial_number_raw',
-          'serialnumber',
-          'serial_no',
-        ]),
-      );
-
-      const memoryType = textValue(
-        firstValue(module, [
-          'type',
-          'memory_type',
-          'form_factor',
-        ]),
-      );
-
-      const speed = getSpeed(module);
-
       rows.push([
         'RAM',
-        manufacturer,
-        model,
-        serial,
-        memoryType,
-        speed,
+
+        getManufacturer(module, 'ram'),
+
+        textValue(
+          firstValue(module, [
+            'model',
+            'part_number',
+            'part_number_raw',
+            'partnumber',
+            'product',
+            'product_name',
+          ]),
+        ),
+
+        textValue(
+          firstValue(module, [
+            'serial',
+            'serial_number',
+            'serial_number_raw',
+            'serialnumber',
+            'serial_no',
+          ]),
+        ),
+
+        textValue(
+          firstValue(module, [
+            'type',
+            'memory_type',
+            'form_factor',
+          ]),
+        ),
+
+        getSpeed(module),
+
         getCapacity(module),
       ]);
     }
@@ -1027,14 +904,26 @@ function HardwareComponents({
   );
 
   if (hasMotherboardInformation) {
+    const cpuCores = textValue(
+      firstValue(audit.cpu_info, [
+        'cores',
+        'core_count',
+        'cpu_cores',
+        'physical_cores',
+        'number_of_cores',
+      ]),
+    );
+
     rows.push([
       'Motherboard',
+
       textValue(
         firstValue(motherboard, [
           'manufacturer',
           'vendor',
         ]),
       ),
+
       textValue(
         firstValue(motherboard, [
           'model',
@@ -1042,13 +931,16 @@ function HardwareComponents({
           'product',
         ]),
       ),
+
       textValue(
         firstValue(motherboard, [
           'serial',
           'serial_number',
         ]),
       ),
+
       audit.architecture || 'Not available',
+
       textValue(
         firstValue(audit.cpu_info, [
           'speed',
@@ -1061,26 +953,9 @@ function HardwareComponents({
           'clock_speed',
           'clock_speed_mhz',
         ]),
-      ) || 'Not available',
-      textValue(
-        firstValue(audit.cpu_info, [
-          'cores',
-          'core_count',
-          'cpu_cores',
-          'physical_cores',
-          'number_of_cores',
-        ]),
-      )
-        ? `${textValue(
-            firstValue(audit.cpu_info, [
-              'cores',
-              'core_count',
-              'cpu_cores',
-              'physical_cores',
-              'number_of_cores',
-            ]),
-          )} cores`
-        : 'Not available',
+      ),
+
+      cpuCores ? `${cpuCores} cores` : '',
     ]);
   }
 
@@ -1088,12 +963,14 @@ function HardwareComponents({
   for (const drive of audit.storage ?? []) {
     rows.push([
       'Storage',
+
       textValue(
         firstValue(drive, [
           'manufacturer',
           'vendor',
         ]),
       ),
+
       textValue(
         firstValue(drive, [
           'model',
@@ -1102,35 +979,43 @@ function HardwareComponents({
           'path',
         ]),
       ),
+
       textValue(
         firstValue(drive, [
           'serial',
           'serial_number',
         ]),
       ),
+
       textValue(
         firstValue(drive, [
           'type',
           'transport',
         ]),
       ),
+
       '',
+
       getDriveSize(drive),
     ]);
   }
 
   // Display / Monitor rows
-  // Uses the existing seven columns; no additional headers.
+  // Uses only the existing seven columns.
   for (const display of audit.display ?? []) {
     rows.push([
+      // Component
       'Display',
 
       // Manufacturer
       textValue(
         firstValue(display, [
           'manufacturer',
+          'Manufacturer',
           'vendor',
+          'Vendor',
           'brand',
+          'Brand',
         ]),
       ),
 
@@ -1138,10 +1023,15 @@ function HardwareComponents({
       textValue(
         firstValue(display, [
           'model',
+          'Model',
           'model_name',
+          'modelName',
           'part_number',
+          'partnumber',
           'product',
+          'product_name',
           'name',
+          'monitor_name',
         ]),
       ),
 
@@ -1149,18 +1039,23 @@ function HardwareComponents({
       textValue(
         firstValue(display, [
           'serial',
+          'Serial',
           'serial_number',
+          'SerialNumber',
           'serialnumber',
+          'serial_no',
+          'serialNo',
         ]),
       ),
 
-      // Type: connection type
+      // Type
       textValue(
         firstValue(display, [
           'connection_type',
           'transport',
           'interface',
           'type',
+          'display_type',
         ]),
       ),
 
@@ -1171,36 +1066,51 @@ function HardwareComponents({
       getDisplaySize(display),
     ]);
   }
+
   // Wi-Fi rows
   for (const wifi of audit.wifi ?? []) {
     rows.push([
       'Wi-Fi',
+
       textValue(
         firstValue(wifi, [
           'manufacturer',
+          'vendor',
         ]),
       ),
+
       textValue(
         firstValue(wifi, [
           'model',
           'name',
+          'product',
         ]),
       ),
+
       textValue(
         firstValue(wifi, [
           'mac_address',
+          'mac',
+          'serial',
+          'serial_number',
         ]),
       ),
+
       textValue(
         firstValue(wifi, [
           'type',
+          'interface',
         ]),
       ),
+
       textValue(
         firstValue(wifi, [
           'transmit_bitrate',
+          'speed',
+          'link_speed',
         ]),
       ),
+
       '',
     ]);
   }
@@ -1223,24 +1133,21 @@ function HardwareComponents({
         <div className="summary-item">
           <span>Installed RAM Modules</span>
           <strong>
-            {audit.ram.modules_installed ??
-              ramModules.length}
+            {audit.ram.modules_installed ?? ramModules.length}
           </strong>
         </div>
 
         <div className="summary-item">
           <span>RAM Slots Used</span>
           <strong>
-            {audit.ram.slots_used ??
-              ramModules.length}
+            {audit.ram.slots_used ?? ramModules.length}
           </strong>
         </div>
 
         <div className="summary-item">
           <span>RAM Slots Available</span>
           <strong>
-            {audit.ram.slots_available ??
-              'Not available'}
+            {audit.ram.slots_available ?? 'Not available'}
           </strong>
         </div>
       </div>
@@ -1248,16 +1155,9 @@ function HardwareComponents({
       <InventoryTable rows={rows} />
 
       <p className="helper-text">
-        Manufacturer, serial number, model, speed, capacity,
+        Manufacturer, model, serial number, speed, capacity,
         and display specifications are shown when reported
-        by the operating system and hardware firmware.
-        Some devices do not expose every field.
-      </p>
-    </Section>
-  );
-}
-
-/* =========================================================
+        /* =========================================================
    Additional information
 ========================================================= */
 
@@ -1483,6 +1383,7 @@ function AuditPage({
       console.log('Motherboard:', record.motherboard);
       console.log('Storage:', record.storage);
       console.log('Display:', record.display);
+      console.log('Wi-Fi:', record.wifi);
 
       setAudit(record);
       setMessageType('success');
@@ -1537,7 +1438,7 @@ function AuditPage({
       setMessageType('success');
 
       setMessage(
-        'The computer audit and RAM details were saved to AWS. Motherboard, storage, and display are displayed locally but are not submitted by the current data model.',
+        'The computer audit and RAM details were saved to AWS. Motherboard, storage, display, and Wi-Fi are displayed locally but are not submitted by the current data model.',
       );
     } catch (error) {
       setMessageType('error');
