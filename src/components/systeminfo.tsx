@@ -1,46 +1,42 @@
-// systeminfo.tsx
-
-import React from 'react';
-
-export type SystemInfoAudit = {
-  product_type: string;
-  chassis_type: string;
-  manufacturer: string;
-  model: string;
-  serial: string;
-  part_number: string;
-  cpu: string;
-  cpu_info: {
+tsx
+type AuditRecord = {
+  product_type?: string;
+  chassis_type?: string;
+  manufacturer?: string;
+  model?: string;
+  serial?: string;
+  part_number?: string;
+  cpu?: string;
+  cpu_info?: {
     model?: string;
-    [key: string]: unknown;
   };
 };
 
 type SystemInformationProps = {
-  audit: SystemInfoAudit;
+  audit?: AuditRecord;
 };
 
 export default function SystemInformation({
   audit,
 }: SystemInformationProps) {
   const productType =
-    audit.product_type &&
+    audit?.product_type &&
     audit.product_type !== 'Unknown'
       ? audit.product_type
-      : audit.chassis_type;
+      : audit?.chassis_type === 'Notebook'
+        ? 'Laptop'
+        : audit?.chassis_type || '';
 
-  const cpu =
-    audit.cpu_info?.model ||
-    audit.cpu ||
-    '';
-
-  const rows = [
+  const rows: [string, string][] = [
     ['Product Type', productType],
-    ['CPU', cpu],
-    ['Manufacturer', audit.manufacturer],
-    ['Model', audit.model],
-    ['Serial Number', audit.serial],
-    ['Part Number', audit.part_number],
+    [
+      'CPU',
+      audit?.cpu_info?.model || audit?.cpu || '',
+    ],
+    ['Manufacturer', audit?.manufacturer || ''],
+    ['Model', audit?.model || ''],
+    ['Serial Number', audit?.serial || ''],
+    ['Part Number', audit?.part_number || ''],
   ];
 
   return (
