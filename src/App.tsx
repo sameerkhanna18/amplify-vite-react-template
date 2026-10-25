@@ -916,313 +916,122 @@ function SystemInformation({
    Hardware components
 ========================================================= */
 
+/* =========================================================
+   Hardware components:
+========================================================= */
+
 function HardwareComponents({
   audit,
 }: {
   audit: AuditRecord;
 }) {
-  const ramModules = audit.ram?.modules ?? [];
-
-  const rows: Array<Array<unknown>> = [];
-
-  // 1. CPU — first hardware row.
-  rows.push(getCpuInventoryRow(audit.cpu_info));
-
-  // 2. RAM.
-  if (ramModules.length > 0) {
-    for (const module of ramModules) {
-      rows.push([
-        'RAM',
-        getManufacturer(module, 'ram'),
-        textValue(
-          firstValue(module, [
-            'model',
-            'part_number',
-            'part_number_raw',
-            'partnumber',
-            'product',
-            'product_name',
-          ]),
-        ),
-        textValue(
-          firstValue(module, [
-            'serial',
-            'serial_number',
-            'serial_number_raw',
-            'serialnumber',
-            'serial_no',
-          ]),
-        ),
-        textValue(
-          firstValue(module, [
-            'type',
-            'memory_type',
-            'form_factor',
-          ]),
-        ),
-        getSpeed(module),
-        getCapacity(module),
-      ]);
-    }
-  } else {
-    rows.push([
-      'RAM',
-      '',
-      '',
-      '',
-      '',
-      '',
-      audit.ram.total_gb !== undefined
-        ? `${audit.ram.total_gb} GB total`
-        : '',
-    ]);
-  }
-
-  // 3. Motherboard.
+  const cpu = audit.cpu_info ?? {};
   const motherboard = audit.motherboard ?? {};
 
-  if (
-    Object.values(motherboard).some(
-      (value) =>
-        value !== undefined &&
-        value !== null &&
-        value !== '',
-    )
-  ) {
-    rows.push([
+  const rows: Array<Array<unknown>> = [
+    // CPU — first row
+    [
+      'CPU',
+
+      textValue(
+        firstValue(cpu, ['manufacturer', 'vendor']),
+      ),
+
+      textValue(
+        firstValue(cpu, ['model', 'name']) || audit.cpu,
+      ),
+
+      textValue(
+        firstValue(cpu, ['serial', 'serial_number']),
+      ),
+
+      textValue(
+        firstValue(cpu, ['architecture']) ||
+          audit.architecture,
+      ),
+
+      textValue(
+        firstValue(cpu, [
+          'maximum_speed',
+          'speed',
+          'current_speed',
+        ]),
+      ),
+
+      (() => {
+        const cores = textValue(
+          firstValue(cpu, [
+            'cores',
+            'core_count',
+            'physical_cores',
+            'number_of_cores',
+          ]),
+        );
+
+        return cores ? `${cores} cores` : '';
+      })(),
+    ],
+
+    // Motherboard — second row
+    [
       'Motherboard',
+
       textValue(
         firstValue(motherboard, [
           'manufacturer',
           'vendor',
         ]),
       ),
+
       textValue(
         firstValue(motherboard, [
           'model',
           'product',
           'part_number',
+          'board_name',
         ]),
       ),
+
       textValue(
         firstValue(motherboard, [
           'serial',
           'serial_number',
+          'serial_number_raw',
         ]),
       ),
+
       textValue(
         firstValue(motherboard, [
+          'architecture',
           'type',
           'form_factor',
-        ]),
+        ]) || audit.architecture,
       ),
-      '',
-      '',
-    ]);
-  }
 
-  // 4. Storage.
-  for (const drive of audit.storage) {
-    rows.push([
-      'Storage',
       textValue(
-        firstValue(drive, [
-          'manufacturer',
-          'vendor',
+        firstValue(motherboard, [
+          'speed',
+          'bus_speed',
+          'frequency',
         ]),
       ),
+
       textValue(
-        firstValue(drive, [
-          'model',
-          'part_number',
-          'device',
-          'path',
+        firstValue(motherboard, [
+          'size',
+          'cores',
+          'core_count',
         ]),
       ),
-      textValue(
-        firstValue(drive, [
-          'serial',
-          'serial_number',
-        ]),
-      ),
-      textValue(
-        firstValue(drive, [
-          'type',
-          'transport',
-          'interface',
-        ]),
-      ),
-      '',
-      getDriveSize(drive),
-    ]);
-  }
-
-  // 5. Displays.
-  for (const display of audit.display) {
-    rows.push([
-      'Display',
-      textValue(
-        firstValue(display, [
-          'manufacturer',
-          'vendor',
-          'brand',
-        ]),
-      ),
-      textValue(
-        firstValue(display, [
-          'model',
-          'model_name',
-          'part_number',
-          'product',
-          'product_name',
-          'name',
-          'monitor_name',
-        ]),
-      ),
-      textValue(
-        firstValue(display, [
-          'serial',
-          'serial_number',
-          'serialnumber',
-        ]),
-      ),
-      textValue(
-        firstValue(display, [
-          'connection_type',
-          'transport',
-          'interface',
-          'type',
-          'display_type',
-        ]),
-      ),
-      getDisplayRefreshRate(display),
-      getDisplaySize(display),
-    ]);
-  }
-
-  // Helper for network adapters and peripherals.
-  function addHardwareRows(
-    componentName: string,
-    items: HardwareItem[],
-  ) {
-    for (const item of items) {
-      rows.push([
-        componentName,
-
-        textValue(
-          firstValue(item, [
-            'manufacturer',
-            'vendor',
-            'brand',
-          ]),
-        ),
-
-        textValue(
-          firstValue(item, [
-            'model',
-            'name',
-            'product',
-            'product_name',
-            'part_number',
-            'device',
-          ]),
-        ),
-
-        textValue(
-          firstValue(item, [
-            'serial',
-            'serial_number',
-            'mac_address',
-            'mac',
-          ]),
-        ),
-
-        textValue(
-          firstValue(item, [
-            'type',
-            'interface',
-            'connection_type',
-            'transport',
-          ]),
-        ),
-
-        textValue(
-          firstValue(item, [
-            'speed',
-            'link_speed',
-            'transmit_bitrate',
-            'configured_speed',
-          ]),
-        ),
-
-        textValue(
-          firstValue(item, [
-            'capacity',
-            'size',
-            'capacity_gb',
-          ]),
-        ),
-      ]);
-    }
-  }
-
-  // 6. Network hardware.
-  addHardwareRows('Wi-Fi', audit.wifi);
-  addHardwareRows('Ethernet', audit.ethernet);
-  addHardwareRows('Bluetooth', audit.bluetooth);
-
-  // 7. Other hardware.
-  addHardwareRows('Graphics', audit.graphics);
-  addHardwareRows('Keyboard', audit.keyboard);
-  addHardwareRows('Webcam', audit.webcam);
-  addHardwareRows('Audio', audit.audio);
+    ],
+  ];
 
   return (
     <Section
       title="Hardware Components"
-      description="CPU, memory, motherboard, storage, displays, network adapters, and other detected hardware."
+      description="CPU and motherboard specifications."
     >
-      <div className="hardware-summary">
-        <div className="summary-item">
-          <span>Processor</span>
-          <strong>
-            {showValue(
-              firstValue(audit.cpu_info, [
-                'model',
-                'name',
-              ]),
-            )}
-          </strong>
-        </div>
-
-        <div className="summary-item">
-          <span>Total RAM</span>
-          <strong>
-            {audit.ram.total_gb !== undefined
-              ? `${audit.ram.total_gb} GB`
-              : 'Not available'}
-          </strong>
-        </div>
-
-        <div className="summary-item">
-          <span>RAM Modules</span>
-          <strong>
-            {audit.ram.modules_installed ?? ramModules.length}
-          </strong>
-        </div>
-
-        <div className="summary-item">
-          <span>Storage Devices</span>
-          <strong>{audit.storage.length}</strong>
-        </div>
-      </div>
-
       <InventoryTable rows={rows} />
-
-      <p className="helper-text">
-        CPU appears first, followed by other detected hardware.
-        Missing information is shown as unavailable.
-      </p>
     </Section>
   );
 }
