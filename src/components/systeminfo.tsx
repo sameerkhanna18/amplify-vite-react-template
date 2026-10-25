@@ -1,4 +1,3 @@
-tsx
 type AuditRecord = {
   product_type?: string;
   chassis_type?: string;
