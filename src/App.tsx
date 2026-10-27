@@ -7,7 +7,6 @@ import '@aws-amplify/ui-react/styles.css';
 
 import {
   getCpuInventoryRow,
-  getCpuInformationRows,
 } from './components/cpu';
 
 const client = generateClient<Schema>();
@@ -279,15 +278,23 @@ function getManufacturer(
 }
 
 function getSpeed(item: HardwareItem): string {
-  return textValue(
-    firstValue(item, [
-      'configured_speed',
-      'configured_memory_speed',
-      'speed',
-      'speed_mhz',
-      'clock_speed',
-    ]),
-  );
+  const value = firstValue(item, [
+    'configured_speed',
+    'configured_memory_speed',
+    'speed',
+    'speed_mhz',
+    'clock_speed',
+  ]);
+
+  if (value === '') return '';
+
+  const speed = textValue(value);
+
+  if (/mhz|mt\/s|ghz/i.test(speed)) {
+    return speed;
+  }
+
+  return `${speed} MHz`;
 }
 
 function getDriveSize(drive: HardwareItem): string {
@@ -879,6 +886,7 @@ function InventoryTable({
 
 /* =========================================================
    System information
+   Only four fields are displayed.
 ========================================================= */
 
 function SystemInformation({
@@ -889,7 +897,7 @@ function SystemInformation({
   return (
     <Section
       title="System Information"
-      description="Computer identification and processor specifications."
+      description="Computer identification details."
     >
       <DataTable
         rows={[
@@ -900,12 +908,9 @@ function SystemInformation({
               ? audit.product_type
               : audit.chassis_type,
           ],
-          ...getCpuInformationRows(audit.cpu_info),
           ['Manufacturer', audit.manufacturer],
           ['Model', audit.model],
           ['Serial Number', audit.serial],
-          ['Part Number', audit.part_number],
-          ['System UUID', audit.system_uuid],
         ]}
       />
     </Section>
@@ -914,6 +919,14 @@ function SystemInformation({
 
 /* =========================================================
    Hardware components
+   Order:
+   1. Motherboard
+   2. CPU
+   3. RAM
+   4. Storage
+   5. Display
+   6. Network
+   7. Other hardware
 ========================================================= */
 
 function HardwareComponents({
@@ -925,60 +938,7 @@ function HardwareComponents({
 
   const rows: Array<Array<unknown>> = [];
 
-  // 1. CPU — first hardware row.
-  rows.push(getCpuInventoryRow(audit.cpu_info));
-
-  // 2. RAM.
-  if (ramModules.length > 0) {
-    for (const module of ramModules) {
-      rows.push([
-        'RAM',
-        getManufacturer(module, 'ram'),
-        textValue(
-          firstValue(module, [
-            'model',
-            'part_number',
-            'part_number_raw',
-            'partnumber',
-            'product',
-            'product_name',
-          ]),
-        ),
-        textValue(
-          firstValue(module, [
-            'serial',
-            'serial_number',
-            'serial_number_raw',
-            'serialnumber',
-            'serial_no',
-          ]),
-        ),
-        textValue(
-          firstValue(module, [
-            'type',
-            'memory_type',
-            'form_factor',
-          ]),
-        ),
-        getSpeed(module),
-        getCapacity(module),
-      ]);
-    }
-  } else {
-    rows.push([
-      'RAM',
-      '',
-      '',
-      '',
-      '',
-      '',
-      audit.ram.total_gb !== undefined
-        ? `${audit.ram.total_gb} GB total`
-        : '',
-    ]);
-  }
-
-  // 3. Motherboard.
+  // 1. Motherboard.
   const motherboard = audit.motherboard ?? {};
 
   if (
@@ -1021,16 +981,77 @@ function HardwareComponents({
     ]);
   }
 
+  // 2. CPU.
+  rows.push(getCpuInventoryRow(audit.cpu_info));
+
+  // 3. RAM.
+  if (ramModules.length > 0) {
+    for (const module of ramModules) {
+      rows.push([
+        'RAM',
+
+        getManufacturer(module, 'ram'),
+
+        textValue(
+          firstValue(module, [
+            'model',
+            'part_number',
+            'part_number_raw',
+            'partnumber',
+            'product',
+            'product_name',
+          ]),
+        ),
+
+        textValue(
+          firstValue(module, [
+            'serial',
+            'serial_number',
+            'serial_number_raw',
+            'serialnumber',
+            'serial_no',
+          ]),
+        ),
+
+        textValue(
+          firstValue(module, [
+            'type',
+            'memory_type',
+            'form_factor',
+          ]),
+        ),
+
+        getSpeed(module),
+
+        getCapacity(module),
+      ]);
+    }
+  } else {
+    rows.push([
+      'RAM',
+      '',
+      '',
+      '',
+      '',
+      '',
+      audit.ram.total_gb !== undefined
+        ? `${audit.ram.total_gb} GB total`
+        : '',
+    ]);
+  }
+
   // 4. Storage.
   for (const drive of audit.storage) {
     rows.push([
       'Storage',
+
       textValue(
         firstValue(drive, [
           'manufacturer',
           'vendor',
         ]),
       ),
+
       textValue(
         firstValue(drive, [
           'model',
@@ -1039,12 +1060,14 @@ function HardwareComponents({
           'path',
         ]),
       ),
+
       textValue(
         firstValue(drive, [
           'serial',
           'serial_number',
         ]),
       ),
+
       textValue(
         firstValue(drive, [
           'type',
@@ -1052,7 +1075,9 @@ function HardwareComponents({
           'interface',
         ]),
       ),
+
       '',
+
       getDriveSize(drive),
     ]);
   }
@@ -1061,6 +1086,7 @@ function HardwareComponents({
   for (const display of audit.display) {
     rows.push([
       'Display',
+
       textValue(
         firstValue(display, [
           'manufacturer',
@@ -1068,6 +1094,7 @@ function HardwareComponents({
           'brand',
         ]),
       ),
+
       textValue(
         firstValue(display, [
           'model',
@@ -1079,6 +1106,7 @@ function HardwareComponents({
           'monitor_name',
         ]),
       ),
+
       textValue(
         firstValue(display, [
           'serial',
@@ -1086,6 +1114,7 @@ function HardwareComponents({
           'serialnumber',
         ]),
       ),
+
       textValue(
         firstValue(display, [
           'connection_type',
@@ -1095,7 +1124,9 @@ function HardwareComponents({
           'display_type',
         ]),
       ),
+
       getDisplayRefreshRate(display),
+
       getDisplaySize(display),
     ]);
   }
@@ -1180,7 +1211,7 @@ function HardwareComponents({
   return (
     <Section
       title="Hardware Components"
-      description="CPU, memory, motherboard, storage, displays, network adapters, and other detected hardware."
+      description="Hardware inventory in the requested component order."
     >
       <div className="hardware-summary">
         <div className="summary-item">
@@ -1190,7 +1221,7 @@ function HardwareComponents({
               firstValue(audit.cpu_info, [
                 'model',
                 'name',
-              ]),
+              ]) || audit.cpu,
             )}
           </strong>
         </div>
@@ -1220,7 +1251,8 @@ function HardwareComponents({
       <InventoryTable rows={rows} />
 
       <p className="helper-text">
-        CPU appears first, followed by other detected hardware.
+        Components are displayed in this order: Motherboard,
+        CPU, RAM, Storage, Display, Network, and Other Hardware.
         Missing information is shown as unavailable.
       </p>
     </Section>
@@ -1269,13 +1301,16 @@ function AdditionalInformation({
           ['IMEI', audit.imei],
           ['System UUID', audit.system_uuid],
           ['Hardware ID', audit.hwid],
+
           [
             'Collected At',
             audit.collected_at
               ? new Date(audit.collected_at).toLocaleString()
               : '',
           ],
+
           ...metadataRows,
+
           [
             'Agent Version',
             firstValue(audit.additional_info, [
