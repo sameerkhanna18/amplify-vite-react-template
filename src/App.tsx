@@ -1068,14 +1068,10 @@ function HardwareComponents({
       ),
 
       textValue(
-  firstValue(drive, [
-    'serial',
-    'serial_number',
-    'serialnumber',
-    'SerialNumber',
-    'serial_number_raw',
-  ]),
-),
+        firstValue(drive, [
+          '',
+          'serial_number',
+        ]),
       ),
 
       textValue(
@@ -1088,33 +1084,9 @@ function HardwareComponents({
 
       '',
 
-      function getDriveSize(drive: HardwareItem): string {
-  if (
-    typeof drive.size_gb === 'number' &&
-    Number.isFinite(drive.size_gb)
-  ) {
-    return `${Math.round(drive.size_gb)} GB`;
+      getDriveSize(drive),
+    ]);
   }
-
-  if (
-    typeof drive.size_tb === 'number' &&
-    Number.isFinite(drive.size_tb)
-  ) {
-    return `${drive.size_tb} TB`;
-  }
-
-  if (
-    typeof drive.size_bytes === 'number' &&
-    Number.isFinite(drive.size_bytes)
-  ) {
-    return `${Math.round(
-      drive.size_bytes / 1_000_000_000,
-    )} GB`;
-  }
-
-  return '';
-}
-
 
   // 5. Displays.
   for (const display of audit.display) {
