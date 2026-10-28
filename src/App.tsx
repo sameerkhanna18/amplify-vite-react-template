@@ -1047,46 +1047,72 @@ function HardwareComponents({
   }
 
   // 4. Storage.
-  for (const drive of audit.storage) {
-    rows.push([
-      'Storage',
+for (const drive of audit.storage) {
+  rows.push([
+    'Storage',
 
-      textValue(
-        firstValue(drive, [
-          'manufacturer',
-          'vendor',
-        ]),
-      ),
+    // Manufacturer
+    textValue(
+      firstValue(drive, [
+        'manufacturer',
+        'Manufacturer',
+        'vendor',
+        'Vendor',
+        'brand',
+      ]),
+    ),
 
-      textValue(
-        firstValue(drive, [
-          'model',
-          'part_number',
-          'device',
-          'path',
-        ]),
-      ),
+    // Model / Device
+    textValue(
+      firstValue(drive, [
+        'model',
+        'Model',
+        'product',
+        'product_name',
+        'part_number',
+        'device',
+        'path',
+        'name',
+      ]),
+    ),
 
-      textValue(
-        firstValue(drive, [
-          '',
-          'serial_number',
-        ]),
-      ),
+    // Serial Number
+    textValue(
+      firstValue(drive, [
+        'serial',
+        'serial_number',
+        'serialnumber',
+        'SerialNumber',
+        'serial_no',
+        'serialNo',
+        'device_serial',
+        'wwn',
+      ]),
+    ),
 
-      textValue(
-        firstValue(drive, [
-          'type',
-          'transport',
-          'interface',
-        ]),
-      ),
+    // Type / Interface
+    textValue(
+      firstValue(drive, [
+        'type',
+        'transport',
+        'interface',
+        'bus',
+        'protocol',
+      ]),
+    ),
 
-      '',
+    // Speed
+    textValue(
+      firstValue(drive, [
+        'speed',
+        'link_speed',
+      ]),
+    ),
 
-      getDriveSize(drive),
-    ]);
-  }
+    // Size
+    getDriveSize(drive),
+  ]);
+}
 
   // 5. Displays.
   for (const display of audit.display) {
