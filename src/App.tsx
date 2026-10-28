@@ -290,7 +290,12 @@ function getSpeed(item: HardwareItem): string {
 
   const speed = textValue(value);
 
-  if (/mhz|mt\/s|ghz/i.test(speed)) {
+  // Replace MT/s with MHz for display.
+  if (/mt\/s/i.test(speed)) {
+    return speed.replace(/mt\/s/i, 'MHz');
+  }
+
+  if (/mhz|ghz/i.test(speed)) {
     return speed;
   }
 
@@ -1010,7 +1015,7 @@ function HardwareComponents({
             'serial_number',
             'serial_number_raw',
             'serialnumber',
-            'serial_no',
+            '_no',
           ]),
         ),
 
@@ -1064,7 +1069,7 @@ function HardwareComponents({
 
       textValue(
         firstValue(drive, [
-          'serial',
+          '',
           'serial_number',
         ]),
       ),
