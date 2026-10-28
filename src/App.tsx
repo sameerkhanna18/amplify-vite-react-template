@@ -911,6 +911,7 @@ function SystemInformation({
           ['Manufacturer', audit.manufacturer],
           ['Model', audit.model],
           ['Serial Number', audit.serial],
+          ['Part Number (SKU)', audit.part_number],
         ]}
       />
     </Section>
