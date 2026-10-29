@@ -1919,9 +1919,7 @@ function AuditPage({
    App entry point
 ========================================================= */
 
-export default function App() { const [activePage, setActivePage] = useState< 'audit' | 'tests'
-
-('audit');
+export default function App() { const [activePage, setActivePage] = useState<'audit' | 'tests'>('audit');
 
 return ( <Authenticator> {({ signOut, user }) => ( <> <nav style={{ display: 'flex', gap: '10px', padding: '14px 28px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap', }} > <button type="button" onClick={() => setActivePage('audit')} style={{ padding: '10px 18px', border: 'none', borderRadius: '8px', background: activePage === 'audit' ? '#2563eb' : '#f1f5f9', color: activePage === 'audit' ? '#ffffff' : '#334155', cursor: 'pointer', fontWeight: 600, }} > Computer Audit </button>
 
