@@ -4,6 +4,7 @@ import { Authenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
 import '@aws-amplify/ui-react/styles.css';
+import HardwareTest from './Hardware Test';
 
 import {
   getCpuInventoryRow,
@@ -1918,15 +1919,44 @@ function AuditPage({
    App entry point
 ========================================================= */
 
-export default function App() {
-  return (
-    <Authenticator>
-      {({ signOut, user }) => (
+export default function App() { const [activePage, setActivePage] = useState< 'audit' | 'tests'
+
+('audit');
+
+return ( <Authenticator> {({ signOut, user }) => ( <> <nav style={{ display: 'flex', gap: '10px', padding: '14px 28px', background: '#ffffff', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap', }} > <button type="button" onClick={() => setActivePage('audit')} style={{ padding: '10px 18px', border: 'none', borderRadius: '8px', background: activePage === 'audit' ? '#2563eb' : '#f1f5f9', color: activePage === 'audit' ? '#ffffff' : '#334155', cursor: 'pointer', fontWeight: 600, }} > Computer Audit </button>
+
+        <button
+          type="button"
+          onClick={() => setActivePage('tests')}
+          style={{
+            padding: '10px 18px',
+            border: 'none',
+            borderRadius: '8px',
+            background:
+              activePage === 'tests' ? '#2563eb' : '#f1f5f9',
+            color:
+              activePage === 'tests' ? '#ffffff' : '#334155',
+            cursor: 'pointer',
+            fontWeight: 600,
+          }}
+        >
+          Hardware Tests
+        </button>
+      </nav>
+
+      {activePage === 'audit' ? (
         <AuditPage
           signOut={signOut ?? undefined}
           user={user}
         />
+      ) : (
+        <HardwareTest
+          signOut={signOut ?? undefined}
+        />
       )}
-    </Authenticator>
-  );
-}
+    </>
+  )}
+</Authenticator>
+
+
+); }
