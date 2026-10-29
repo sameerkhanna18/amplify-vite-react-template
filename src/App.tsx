@@ -4,7 +4,7 @@ import { Authenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../amplify/data/resource';
 import '@aws-amplify/ui-react/styles.css';
-import HardwareTest from './Hardware Test';
+import HardwareTest from './HardwareTest';
 
 import {
   getCpuInventoryRow,
