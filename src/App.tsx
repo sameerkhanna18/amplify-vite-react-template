@@ -819,12 +819,8 @@ function DataTable({
 
 function InventoryTable({
   rows,
-  onTestRam,
-  ramTestBusy,
 }: {
   rows: Array<Array<unknown>>;
-  onTestRam: () => void;
-  ramTestBusy: boolean;
 }) {
   const columns = [
     'Component',
@@ -834,7 +830,6 @@ function InventoryTable({
     'Type',
     'Speed',
     'Size',
-    'Action',
   ];
 
   return (
@@ -870,37 +865,22 @@ function InventoryTable({
         <tbody>
           {rows.map((row, rowIndex) => (
             <tr key={`${String(row[0])}-${rowIndex}`}>
-            {columns.map((column, columnIndex) => (
-  <td
-    key={column}
-    style={{
-      ...styles.valueCell,
-      background:
-        rowIndex % 2 === 0
-          ? '#ffffff'
-          : '#f8fafc',
-      whiteSpace: 'normal',
-      minWidth: column === 'Action' ? '130px' : '90px',
-    }}
-  >
-    {column === 'Action' ? (
-      String(row[0]) === 'RAM' ? (
-        <button
-          type="button"
-          style={styles.secondaryButton}
-          onClick={onTestRam}
-          disabled={ramTestBusy}
-        >
-          {ramTestBusy ? 'Testing...' : 'Test RAM'}
-        </button>
-      ) : (
-        '—'
-      )
-    ) : (
-      showValue(row[columnIndex] ?? '')
-    )}
-  </td>
-))}
+              {columns.map((_, columnIndex) => (
+                <td
+                  key={columnIndex}
+                  style={{
+                    ...styles.valueCell,
+                    background:
+                      rowIndex % 2 === 0
+                        ? '#ffffff'
+                        : '#f8fafc',
+                    whiteSpace: 'normal',
+                    minWidth: '90px',
+                  }}
+                >
+                  {showValue(row[columnIndex] ?? '')}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>
@@ -1010,55 +990,62 @@ function HardwareComponents({
   // 2. CPU.
   rows.push(getCpuInventoryRow(audit.cpu_info));
 
-  // 3. RAM
-if (ramModules.length > 0) {
-  for (const module of ramModules) {
+  // 3. RAM.
+  if (ramModules.length > 0) {
+    for (const module of ramModules) {
+      rows.push([
+        'RAM',
+
+        getManufacturer(module, 'ram'),
+
+        textValue(
+          firstValue(module, [
+            'model',
+            'part_number',
+            'part_number_raw',
+            'partnumber',
+            'product',
+            'product_name',
+          ]),
+        ),
+
+        textValue(
+          firstValue(module, [
+            'serial',
+            'serial_number',
+            'serial_number_raw',
+            'serialnumber',
+            '_no',
+          ]),
+        ),
+
+        textValue(
+          firstValue(module, [
+            'type',
+            'memory_type',
+            'form_factor',
+          ]),
+        ),
+
+        getSpeed(module),
+
+        getCapacity(module),
+      ]);
+    }
+  } else {
     rows.push([
       'RAM',
-      getManufacturer(module, 'ram'),
-      textValue(
-        firstValue(module, [
-          'model',
-          'part_number',
-          'part_number_raw',
-          'partnumber',
-          'product',
-          'product_name',
-        ]),
-      ),
-      textValue(
-        firstValue(module, [
-          'serial',
-          'serial_number',
-          'serial_number_raw',
-          'serialnumber',
-          '_no',
-        ]),
-      ),
-      textValue(
-        firstValue(module, [
-          'type',
-          'memory_type',
-          'form_factor',
-        ]),
-      ),
-      getSpeed(module),
-      getCapacity(module),
+      '',
+      '',
+      '',
+      '',
+      '',
+      audit.ram.total_gb !== undefined
+        ? `${audit.ram.total_gb} GB total`
+        : '',
     ]);
   }
-} else {
-  rows.push([
-    'RAM',
-    '',
-    '',
-    '',
-    '',
-    '',
-    audit.ram.total_gb !== undefined
-      ? `${audit.ram.total_gb} GB total`
-      : '',
-  ]);
-}
+
   // 4. Storage.
 for (const drive of audit.storage) {
   rows.push([
@@ -1454,10 +1441,6 @@ function AuditPage({
   >('info');
 
   const [busy, setBusy] = useState(false);
-  const [ramTestBusy, setRamTestBusy] = useState(false);
-
-const [ramTestResult, setRamTestResult] =
-  useState<Record<string, unknown> | null>(null);
 
   const [customFields, setCustomFields] =
     useState<CustomFields>(emptyCustomFields);
@@ -1888,62 +1871,8 @@ const [ramTestResult, setRamTestResult] =
           <>
             <SystemInformation audit={audit} />
 
-            <HardwareComponents
-  audit={audit}
-  onTestRam={testRam}
-  ramTestBusy={ramTestBusy}
-/>
+            <HardwareComponents audit={audit} />
 
-{ramTestResult && (
-  <Section
-    title="RAM Test Report"
-    description="Results from the RAM test."
-  >
-    <DataTable
-      rows={[
-        [
-          'Test Result',
-          parseObject(ramTestResult.stress_test).success === true
-            ? 'PASS'
-            : 'FAIL',
-        ],
-        [
-          'Tested Memory',
-          `${parseObject(ramTestResult.stress_test).tested_mb ?? 'Unavailable'} MB`,
-        ],
-        [
-          'Duration',
-          `${parseObject(ramTestResult.stress_test).duration_seconds ?? 'Unavailable'} seconds`,
-        ],
-        [
-          'Test Details',
-          parseObject(ramTestResult.stress_test).message,
-        ],
-      ]}
-    />
-  </Section>
-)}
-
-<AdditionalInformation audit={audit} />
-
-<CustomFieldsEditor
-  fields={customFields}
-  onChange={updateCustomFields}
-/>
-
-<Section
-  title="Submit Audit"
-  description="Save the computer audit to your existing Amplify data model."
->
-  <button
-    type="button"
-    style={styles.button}
-    onClick={submitAudit}
-    disabled={busy}
-  >
-    {busy ? 'Processing...' : 'Submit Audit to AWS'}
-  </button>
-</Section>
             <AdditionalInformation audit={audit} />
 
             <CustomFieldsEditor
